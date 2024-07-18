@@ -57,7 +57,9 @@ DEFAULT_LOGGER()
     logger::info("INITIALIZED");
 }
 
+
 static ConcreteFunction* function = nullptr;
+static ConcreteFunction* actorValueFunc = nullptr;
 
 
 void InitializeMessaging() {
@@ -73,17 +75,17 @@ void InitializeMessaging() {
             break;
 
         case MessagingInterface::kDataLoaded:
-
+            //break;
         case MessagingInterface::kSaveGame:
         {
             //*
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
             
-            Variable result = function->Call(MakeObject(player));
+            Variable result = actorValueFunc->Call(player, "Health");
             
-            std::string number = result.AsNumber().ToString();
-            RE::DebugNotification(number.c_str());
-            report::info("form id of {} is {} as a double", player->GetDisplayFullName(), number);
+            std::string number = result.AsNumber().string();
+            
+            report::info("The current health of {} is {}", player->GetDisplayFullName(), number);
             //*/
         }
             break;
@@ -100,24 +102,32 @@ double GetFormIdAsDouble(RE::TESForm* a_this)
     return a_this ? a_this->GetFormID() : 0.0;
 }
 
+float GetActorValue_backend(RE::Actor* a_this, String av_name)
+{
+
+    RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
+    logger::info("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
+
+    return a_this && av != RE::ActorValue::kNone ? a_this->GetActorValue(av) : 0.0f;
+}
+
 void LexTesting()
 {
-    logger::debug("a");
     ProjectManager::instance->InitMain();
-    logger::debug("b");
+    
     Component::Link(LinkFlag::Declaration);
-    logger::debug("c");
+    
     Component::Link(LinkFlag::Definition);
-    logger::debug("d");
+    
     Component::Link(LinkFlag::External);
-    logger::debug("e");
+    
     Script* script = ProjectManager::instance->GetShared()->FindScript("GameObjects");
-    logger::debug("f");
+    
     //return;
     //ProjectManager::instance->GetFunctionFromPath("Shared::Commons::size");
     
         auto funcs = script->FindFunctions("GetFormIdAsDouble");
-        logger::debug("g");
+        
         if (funcs.size() != 0)
         {
 
@@ -154,9 +164,48 @@ void LexTesting()
                     report::info("success");
                 }
             }
-            else logger::debug("hell1");
         }
-        else logger::debug("hell2");
+
+
+        funcs = script->FindFunctions("GetActorValue");
+        
+        if (funcs.size() != 0)
+        {
+
+            actorValueFunc = dynamic_cast<ConcreteFunction*>(funcs[0]->Get());
+
+            if (function)
+            {
+                /*
+                static_assert(LEX::detail::function_has_var_type<double>, "false");
+                static_assert(LEX::detail::function_has_var_type<RE::TESForm*>, "false");
+                //static_assert(LEX::detail::call_class_has_var_type_Store<RE::TESForm>, "false");
+                static_assert(LEX::detail::call_class_has_var_type_Value<RE::TESForm*>, "false");
+                constexpr auto testing = !std::is_base_of_v<LEX::detail::not_implemented, VariableType<RE::TESForm*>>;
+
+                static_assert(testing);
+                static_assert(testing  && requires(const RE::TESForm* t)
+                {
+                    { LEX::detail::ObtainVariableType<RE::TESForm*>()(t) } -> pointer_derived_from<AbstractTypePolicy*>;
+                }, "false");
+
+                LEX::detail::ObtainVariableType<RE::TESForm>();
+
+                RE::TESForm* testForm = nullptr;
+
+                VariableType<RE::TESForm*>{}(testForm);
+
+                GetVariableType<RE::TESForm*>();
+                //*/
+                if (ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, actorValueFunc) == false) {
+                    report::critical("failure");
+                }
+                else
+                {
+                    report::info("success");
+                }
+            }
+        }
 }
 
 

@@ -51,7 +51,10 @@ namespace LEX
 
 			RE::TESForm* form = type.get<RE::TESForm*>();
 
-			return dynamic_cast<Form*>(form);
+			report::debug("form is named {} with formtype {}", form->GetName(), magic_enum::enum_name(form->GetFormType()));
+
+
+			return skyrim_cast<Form*>(form);
 		}
 	};
 	
