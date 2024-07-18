@@ -1,0 +1,12 @@
+{
+  "name": "lexicon",
+  "version-string": "1",
+  "homepage": "https://github.com/NoahBoddie/lexicon",
+  "license": "MIT",
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    "tomlplusplus",
+    "boost-regex"
+  ]
+}
