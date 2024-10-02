@@ -1,5 +1,8 @@
 #include "GameObjectStuff.h"
 #include "Lexicon/Engine/TempConstruct.h"
+#include "Lexicon/Interfaces/InterfaceManager.h"
+
+#include "FunctionRegister.h"
 
 using namespace SKSE;
 using namespace SKSE::log;
@@ -61,6 +64,10 @@ DEFAULT_LOGGER()
 static ConcreteFunction* function = nullptr;
 static ConcreteFunction* actorValueFunc = nullptr;
 
+void LogDis(std::string_view name, float value)
+{
+    logger::info("The current health of {} is {}", name, value);
+}
 
 void InitializeMessaging() {
     if (!GetMessagingInterface()->RegisterListener([](MessagingInterface::Message* message) {
@@ -75,17 +82,70 @@ void InitializeMessaging() {
             break;
 
         case MessagingInterface::kDataLoaded:
+            Component::Link(LinkFlag::External);
+
+            //logger::info("a");
             //break;
         case MessagingInterface::kSaveGame:
         {
+            Interface* intf = nullptr;
+            //RequestInterface_Impl(intf, "something", 1);
+
             //*
+            logger::info("a");
+            //return;
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+            logger::info("b");
+            Object test = MakeObject(player);
+            logger::info("c");
+            Object test2 = test;
+            logger::info("d");
+            //float number = Formula<float>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::GetActorValue('Health')");
+            float number = player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
+            //float number = 65;
+            //float number = 100;
+            IdentityManager;
+            auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
+            Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
+            number = Formula<float>::Run("GetPlayer().GetActorValue('Health')");
+
+            logger::info("e");
+            //Variable result = actorValueFunc->Call(player, "Health");
             
-            Variable result = actorValueFunc->Call(player, "Health");
+            //std::string number = result.AsNumber().string();
             
-            std::string number = result.AsNumber().string();
+            LogDis("player->GetDisplayFullName()", number);
+
+            using TTT = float(RE::Actor::*)();
             
-            report::info("The current health of {} is {}", player->GetDisplayFullName(), number);
+            number = 0;
+            
+            report::info("resetting...");
+
+            auto form = Formula<float(RE::Actor::*)()>::Create("GetActorValue('Health')");
+            
+            number = form(player);
+
+            report::info("player->GetDisplayFullName() {}", number);
+            if constexpr (0)
+            {
+
+                constexpr auto text1 = L"Request for debugger detected. If you wish to attach one and press Ok, do so now if not please press Cancel.";
+                constexpr auto text2 = L"Debugger still not detected. If you wish to continue without one please press Cancel.";
+                constexpr auto caption = L"Debugger Required";
+
+                int input = 0;
+
+                do
+                {
+                    input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
+                } while (!IsDebuggerPresent() && input != IDCANCEL);
+            }
+
+            unsigned int levelTest = Formula<unsigned int>::Run("(PlayerToActor() as Actor).GetLevel()");
+
+
+            report::info("player level is {}", levelTest);
             //*/
         }
             break;
@@ -95,6 +155,15 @@ void InitializeMessaging() {
     }
 }
 
+void TestEm()
+{
+
+}
+
+static RE::PlayerCharacter* GetPlayer_(StaticTargetTag)
+{
+    return RE::PlayerCharacter::GetSingleton();
+}
 
 
 double GetFormIdAsDouble(RE::TESForm* a_this)
@@ -104,22 +173,28 @@ double GetFormIdAsDouble(RE::TESForm* a_this)
 
 float GetActorValue_backend(RE::Actor* a_this, String av_name)
 {
-
     RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
     logger::info("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
 
-    return a_this && av != RE::ActorValue::kNone ? a_this->GetActorValue(av) : 0.0f;
+    return a_this && av != RE::ActorValue::kNone ? a_this->AsActorValueOwner()->GetActorValue(av) : 0.0f;
 }
 
 void LexTesting()
 {
+
+    Variable test;
+
+    static_cast<std::string_view>(test);
+
     ProjectManager::instance->InitMain();
     
+    Component::Link(LinkFlag::Loaded);
+
     Component::Link(LinkFlag::Declaration);
     
     Component::Link(LinkFlag::Definition);
     
-    Component::Link(LinkFlag::External);
+    //Component::Link(LinkFlag::External);
     
     Script* script = ProjectManager::instance->GetShared()->FindScript("GameObjects");
     
@@ -174,7 +249,7 @@ void LexTesting()
 
             actorValueFunc = dynamic_cast<ConcreteFunction*>(funcs[0]->Get());
 
-            if (function)
+            if (actorValueFunc)
             {
                 /*
                 static_assert(LEX::detail::function_has_var_type<double>, "false");
@@ -206,10 +281,42 @@ void LexTesting()
                 }
             }
         }
+
+
+        
+        if (ProcedureHandler::instance->RegisterFunction(GetPlayer_, "Shared::GameObjects::GetPlayer") == false)
+        {
+            logger::info("Function couldn't be set");
+        }
+
+        temp_NativeFormulaRegister();
 }
 
 
 
+INITIALIZE()
+{
+
+    //Put this sort of thing in a unique ptr please.
+    DefaultClient::SetInstance(new DefaultClientEx);
+
+}
+
+INITIALIZE()
+{
+    //This gives 1 too many.
+    RegisterObjectType<RE::TESForm*>("FORM", (TypeOffset)RE::FormType::Max + ExtraForm::kTotal);
+    /*
+    RE::TESForm* test = nullptr;
+
+    //This may cause issues because it removes pointer?
+    MakeObject(test);
+    ObjectData to{};
+    reinterpret_cast<RE::TESForm*&>(to) = test;
+    FillObjectData<RE::TESForm*>(to, &test);
+    ObjectTranslator<RE::TESForm*>{}(test);
+    //*/
+}
 
 
 
@@ -217,7 +324,7 @@ void LexTesting()
 SKSEPluginLoad(const LoadInterface* skse) {
     
     logger::InitializeLogging();
-#ifdef _DEBUG
+//#ifdef _DEBUG
 
     
 
@@ -233,18 +340,18 @@ SKSEPluginLoad(const LoadInterface* skse) {
             input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
         } while (!IsDebuggerPresent() && input != IDCANCEL);
     }
-#endif
+//#endif
     TestFunction();
     const auto* plugin = PluginDeclaration::GetSingleton();
     auto version = plugin->GetVersion();
     log::info("{} {} is loading...", plugin->GetName(), version);
     Init(skse);
+    logger::info("___A");
     Initializer::Execute();
-
+    logger::info("___B");
     InitializeMessaging();
-
+    logger::info("___C");
     LexTesting();
-
     log::info("{} has finished loading.", plugin->GetName());
 
 
