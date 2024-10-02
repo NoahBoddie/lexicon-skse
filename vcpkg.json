@@ -29,6 +29,7 @@
             "commonlibsse-ng",
             "tomlplusplus",
             "autotoml",
+            "simpleini",
             "fmt",
             "spdlog",
             "magic-enum",

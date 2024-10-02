@@ -15,18 +15,33 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 include(GNUInstallDirs)
 
-configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in
-        ${CMAKE_CURRENT_BINARY_DIR}/version.rc
-        @ONLY)
 
 set(headers
+        include/GameObjectStuff.h
     )
 
-set(sources
-        src/main.cpp
-        src/GameObjectStuff.h
-        ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+#message("* ${CMAKE_PROJECT_NAME} vs ${PROJECT_NAME}")
+message("* ${CMAKE_CURRENT_BINARY_DIR}")
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+message("HIT")
+
+    configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in
+            ${CMAKE_CURRENT_BINARY_DIR}/version.rc
+            @ONLY)
+
+    set(sources
+            src/main.cpp
+            src/FunctionRegister.h
+
+            ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+else()
+#We'll want to empty this out when we do this.
+set(sources)
+
+endif()
+
+
 
 source_group(
         TREE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -50,6 +65,7 @@ find_package(CommonLibSSE CONFIG REQUIRED)
 add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
 add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 
+set(TEST_BUILD OFF)
 
 add_subdirectory("C:/Users/Noah/Desktop/Modding/[Lab]/{Lab Tools}/lexicon" Lexicon)
 add_dependencies(Lexicon Lexicon::Lexicon)
@@ -59,6 +75,25 @@ target_link_libraries(
 	PRIVATE
         Lexicon::Lexicon
 )
+
+
+
+	target_compile_options(
+		${PROJECT_NAME}
+		PRIVATE			
+			/W4	# Warning level
+			#/WX	# Warning level (warnings are errors)
+			"$<$<CONFIG:DEBUG>:>"
+			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
+	)
+
+	target_link_options(
+		${PROJECT_NAME}
+		PRIVATE
+			"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
+			"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
+	)
+
 
 
 target_include_directories(${PROJECT_NAME}
