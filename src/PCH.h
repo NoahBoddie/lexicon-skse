@@ -127,7 +127,7 @@ namespace util {
 
 #define RELOCATION_OFFSET(SE, AE) REL::VariantOffset(SE, AE, 0).offset()
 
-#define SETTING_PATH Data/SKSE/Plugins
+//#define SETTING_PATH Data/SKSE/Plugins
 
 #include "Lexicon.h"
 #include "GameObjectStuff.h"

@@ -17,6 +17,20 @@ namespace LEX
 
 
 
+	static RE::PlayerCharacter* GetPlayer(StaticTargetTag)
+	{
+		return RE::PlayerCharacter::GetSingleton();
+	}
+
+	float GetActorValue_backend(RE::Actor* a_this, String av_name)
+	{
+		RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
+		logger::info("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
+
+		return a_this && av != RE::ActorValue::kNone ? a_this->AsActorValueOwner()->GetActorValue(av) : 0.0f;
+	}
+
+
 	float GetActorValue_backend2(RE::Actor* a_this, LEX::String av_name, int flags)
 	{
 		constexpr int kBase = 1;
@@ -437,7 +451,7 @@ namespace LEX
 
 	double GetRandomRange(LEX::StaticTargetTag, double min, double max, uint32_t seed)
 	{
-		std::srand(seed == (uint32_t)-1 ? std::time(nullptr) : seed);
+		std::srand(seed == (uint32_t)-1 ? (uint32_t)std::time(nullptr) : seed);
 		
 		//auto str = args[2]->GetStringParam();
 
@@ -447,9 +461,9 @@ namespace LEX
 
 		//Currently, this is basically an integer playing pretend as a double. Want to redo, don't care rn.
 
-		int range = max - min + 1;
+		int64_t range = static_cast<int64_t>(max - min + 1);
 
-		int num = rand() % range + min;
+		int64_t num = static_cast<int64_t>(rand() % range + min);
 
 		//cout << "Special Function: min = " << min << ", max = " << max << ", result is num " << num << ";";
 		//ARTHMETIC_LOGGER(debug, "Special Function: min = {}, max = {}, result is num {};", min, max, num);
@@ -538,8 +552,14 @@ namespace LEX
 
 	RE::TESForm* LookupByFormID(StaticTargetTag, RE::FormID id)
 	{
+		//Unvariable<RE::FormID>{}.operator()(nullptr);
 		auto form = RE::TESForm::LookupByID(id);
-		logger::info("ID {:X} {}", id, !!form);
+		logger::info("FRM ID {:X}({}) {}", id, id, !!form);
+		if (id == 6)
+		{
+			report::break_info("What the fuck is this");
+		}
+
 		return form;
 	};
 
@@ -547,9 +567,12 @@ namespace LEX
 	{
 		RE::TESForm* form = nullptr;
 
+
 		if (auto data_handler = RE::TESDataHandler::GetSingleton(); data_handler) {
 			form = data_handler->LookupForm(id, plugin.view());
 		}
+
+		logger::info("LOC ID {} {:X} {}", plugin.view(), id, !!form);
 
 		return form;
 	};
@@ -621,6 +644,9 @@ namespace LEX
 
 		dump = ProcedureHandler::instance->RegisterFunction(SetActorValue, "Shared::GameObjects::SetActorValue");			//25
 		dump = ProcedureHandler::instance->RegisterFunction(ModActorValue, "Shared::GameObjects::ModActorValue");			//26
+
+		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");					//27
+		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");	//28
 	}
 
 #endif

@@ -23,7 +23,6 @@ set(headers
 #message("* ${CMAKE_PROJECT_NAME} vs ${PROJECT_NAME}")
 message("* ${CMAKE_CURRENT_BINARY_DIR}")
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-message("HIT")
 
     configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in
@@ -67,8 +66,15 @@ add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 
 set(TEST_BUILD OFF)
 
+
+
+set (SETTING_PATH Data/SKSE/Plugins)
+
+
 add_subdirectory("C:/Users/Noah/Desktop/Modding/[Lab]/{Lab Tools}/lexicon" Lexicon)
 add_dependencies(Lexicon Lexicon::Lexicon)
+	
+	
 
 target_link_libraries(
 	${PROJECT_NAME}

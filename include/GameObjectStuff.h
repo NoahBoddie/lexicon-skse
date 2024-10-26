@@ -41,12 +41,16 @@ namespace LEX
 		{
 			auto form = data.get<RE::TESForm*>();
 
+			if (!form){
+				static_cast<TypeOffset>(RE::FormType::None);
+			}
+
 			if (form->IsPlayerRef() == true) {
 				return GetExtraFormOffset(ExtraForm::kPlayerCharacter);
 			}
 
 
-			return static_cast<TypeOffset>(form ? form->GetFormType() : RE::FormType::None);
+			return static_cast<TypeOffset>(form->GetFormType());
 		}
 
 		//the form object info needs to edit the transfer functions,
@@ -96,6 +100,17 @@ namespace LEX
 			TryDetach(self.get<Type>());
 			
 			__super::Destroy(self);
+		}
+
+		String PrintString(ObjectData& a_self, std::string_view context) override
+		{
+			auto id = GetTypeID(a_self);
+
+			RE::TESForm* self = a_self.get<Type>();
+
+			ITypePolicy* type = IdentityManager::instance->GetTypeByID(id);
+			
+			return std::format("{}::({}<{:08X}>)", type ? type->GetName() : "Form", self ? self->GetFormEditorID() : "", self ? self->GetFormID() : 0);
 		}
 	};
 
@@ -242,7 +257,7 @@ namespace LEX
 			return -1;
 		}
 
-		std::string_view GetCompileOptions(size_t index) const override 
+		std::string_view GetCompileOptions(size_t index) override 
 		{ 
 			if (index == 0)
 				return "Skyrim";

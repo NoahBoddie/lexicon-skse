@@ -3,6 +3,8 @@
 #include "Lexicon/Interfaces/InterfaceManager.h"
 
 #include "FunctionRegister.h"
+#include "Lexicon/Engine/SettingManager.h"
+
 
 using namespace SKSE;
 using namespace SKSE::log;
@@ -12,6 +14,26 @@ using namespace SKSE::stl;
 //using namespace RGL;
 
 using namespace LEX;
+
+
+
+static void PrintAST(Record& tree, std::string indent = "")
+{
+    const static std::string __dent = "|  ";
+
+    std::string log = tree.Print<Syntax>();
+
+    RGL_LOG(info, "{}{}", indent, log);
+
+    indent += __dent;
+
+    for (auto& child_rec : tree.children())
+    {
+        PrintAST(child_rec, indent);
+    }
+}
+
+
 
 
 DEFAULT_LOGGER()
@@ -35,12 +57,16 @@ DEFAULT_LOGGER()
 
 
 #ifndef NDEBUG
-    const auto level = spdlog::level::trace;
+    auto level = spdlog::level::trace;
 #else
     //Use right alt for just debug logging, control to allow debugger to attach.
-    const auto level = GetKeyState(VK_RCONTROL) & 0x800 || GetKeyState(VK_RMENU) & 0x800 ?
+    auto level = GetKeyState(VK_RCONTROL) & 0x800 || GetKeyState(VK_RMENU) & 0x800 ?
         spdlog::level::debug : spdlog::level::info;
 #endif
+
+    if (level >= spdlog::level::info) {
+        level = LEX::SettingManager::GetSingleton()->level;
+    }
 
 
     log->set_level(level);
@@ -61,11 +87,10 @@ DEFAULT_LOGGER()
 }
 
 
-static ConcreteFunction* function = nullptr;
-static ConcreteFunction* actorValueFunc = nullptr;
-
 void LogDis(std::string_view name, float value)
 {
+    constexpr auto  offset = LEX::Number::Settings::CreateFromType<unsigned int>().GetOffset();
+
     logger::info("The current health of {} is {}", name, value);
 }
 
@@ -74,18 +99,38 @@ void InitializeMessaging() {
         switch (message->type) {
         case MessagingInterface::kPostLoad:
 
+            //if (LEX::ProjectManager::instance->CreateProject("ActorValueGenerator", nullptr) != LEX::APIResult::Success) { logger::info("AVG has experienced failure"); }
+
             break;
             // It is now safe to do multithreaded operations, or operations against other plugins.
 
         case MessagingInterface::kPostPostLoad: // Called after all kPostLoad message handlers have run.
 
+            Component::Link(LinkFlag::Loaded);
+
+            Component::Link(LinkFlag::Declaration);
+
+            Component::Link(LinkFlag::Definition);
+
+            temp_NativeFormulaRegister();
+
             break;
 
         case MessagingInterface::kDataLoaded:
-            Component::Link(LinkFlag::External);
+            logger::info("s1");
+            {
+                //auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
+                //Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
 
-            //logger::info("a");
+                Component::Link(LinkFlag::External);
+
+                //logger::info("Project {}", LEX::Formula<float>::Run("GetPlayer().ProjectTest()", "ActorValueGenerator::Commons"));
+                
+            }
+
+            logger::info("s2");
             //break;
+            [[fallthrough]];
         case MessagingInterface::kSaveGame:
         {
             Interface* intf = nullptr;
@@ -110,7 +155,6 @@ void InitializeMessaging() {
             number = Formula<float>::Run("GetPlayer().GetActorValue('Health')");
 
             logger::info("e");
-            //Variable result = actorValueFunc->Call(player, "Health");
             
             //std::string number = result.AsNumber().string();
             
@@ -160,136 +204,13 @@ void TestEm()
 
 }
 
-static RE::PlayerCharacter* GetPlayer_(StaticTargetTag)
-{
-    return RE::PlayerCharacter::GetSingleton();
-}
 
-
-double GetFormIdAsDouble(RE::TESForm* a_this)
-{
-    return a_this ? a_this->GetFormID() : 0.0;
-}
-
-float GetActorValue_backend(RE::Actor* a_this, String av_name)
-{
-    RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
-    logger::info("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
-
-    return a_this && av != RE::ActorValue::kNone ? a_this->AsActorValueOwner()->GetActorValue(av) : 0.0f;
-}
 
 void LexTesting()
 {
-
-    Variable test;
-
-    static_cast<std::string_view>(test);
-
     ProjectManager::instance->InitMain();
     
-    Component::Link(LinkFlag::Loaded);
 
-    Component::Link(LinkFlag::Declaration);
-    
-    Component::Link(LinkFlag::Definition);
-    
-    //Component::Link(LinkFlag::External);
-    
-    Script* script = ProjectManager::instance->GetShared()->FindScript("GameObjects");
-    
-    //return;
-    //ProjectManager::instance->GetFunctionFromPath("Shared::Commons::size");
-    
-        auto funcs = script->FindFunctions("GetFormIdAsDouble");
-        
-        if (funcs.size() != 0)
-        {
-
-            function = dynamic_cast<ConcreteFunction*>(funcs[0]->Get());
-
-            if (function)
-            {
-                /*
-                static_assert(LEX::detail::function_has_var_type<double>, "false");
-                static_assert(LEX::detail::function_has_var_type<RE::TESForm*>, "false");
-                //static_assert(LEX::detail::call_class_has_var_type_Store<RE::TESForm>, "false");
-                static_assert(LEX::detail::call_class_has_var_type_Value<RE::TESForm*>, "false");
-                constexpr auto testing = !std::is_base_of_v<LEX::detail::not_implemented, VariableType<RE::TESForm*>>;
-
-                static_assert(testing);
-                static_assert(testing  && requires(const RE::TESForm* t)
-                {
-                    { LEX::detail::ObtainVariableType<RE::TESForm*>()(t) } -> pointer_derived_from<AbstractTypePolicy*>;
-                }, "false");
-
-                LEX::detail::ObtainVariableType<RE::TESForm>();
-
-                RE::TESForm* testForm = nullptr;
-
-                VariableType<RE::TESForm*>{}(testForm);
-
-                GetVariableType<RE::TESForm*>();
-                //*/
-                if (ProcedureHandler::instance->RegisterFunction(GetFormIdAsDouble, function) == false) {
-                    report::critical("failure");
-                }
-                else
-                {
-                    report::info("success");
-                }
-            }
-        }
-
-
-        funcs = script->FindFunctions("GetActorValue");
-        
-        if (funcs.size() != 0)
-        {
-
-            actorValueFunc = dynamic_cast<ConcreteFunction*>(funcs[0]->Get());
-
-            if (actorValueFunc)
-            {
-                /*
-                static_assert(LEX::detail::function_has_var_type<double>, "false");
-                static_assert(LEX::detail::function_has_var_type<RE::TESForm*>, "false");
-                //static_assert(LEX::detail::call_class_has_var_type_Store<RE::TESForm>, "false");
-                static_assert(LEX::detail::call_class_has_var_type_Value<RE::TESForm*>, "false");
-                constexpr auto testing = !std::is_base_of_v<LEX::detail::not_implemented, VariableType<RE::TESForm*>>;
-
-                static_assert(testing);
-                static_assert(testing  && requires(const RE::TESForm* t)
-                {
-                    { LEX::detail::ObtainVariableType<RE::TESForm*>()(t) } -> pointer_derived_from<AbstractTypePolicy*>;
-                }, "false");
-
-                LEX::detail::ObtainVariableType<RE::TESForm>();
-
-                RE::TESForm* testForm = nullptr;
-
-                VariableType<RE::TESForm*>{}(testForm);
-
-                GetVariableType<RE::TESForm*>();
-                //*/
-                if (ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, actorValueFunc) == false) {
-                    report::critical("failure");
-                }
-                else
-                {
-                    report::info("success");
-                }
-            }
-        }
-
-
-        
-        if (ProcedureHandler::instance->RegisterFunction(GetPlayer_, "Shared::GameObjects::GetPlayer") == false)
-        {
-            logger::info("Function couldn't be set");
-        }
-
-        temp_NativeFormulaRegister();
 }
 
 
@@ -320,10 +241,12 @@ INITIALIZE()
 
 
 
-
 SKSEPluginLoad(const LoadInterface* skse) {
+    //SettingManager::SetSettingPath("");
     
     logger::InitializeLogging();
+    //SETTING_PATH;
+    
 //#ifdef _DEBUG
 
     
@@ -352,6 +275,8 @@ SKSEPluginLoad(const LoadInterface* skse) {
     InitializeMessaging();
     logger::info("___C");
     LexTesting();
+    //TestParse();
+
     log::info("{} has finished loading.", plugin->GetName());
 
 
