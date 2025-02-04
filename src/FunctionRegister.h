@@ -11,7 +11,6 @@ namespace LEX
 	}
 
 
-
 #define LEGACY_FUNCTION
 #ifdef LEGACY_FUNCTION
 
@@ -31,16 +30,16 @@ namespace LEX
 	}
 
 
-	float GetActorValue_backend2(RE::Actor* a_this, LEX::String av_name, int flags)
+	float GetActorValue_backend2(RE::Actor* a_this, std::string av_name, int flags)
 	{
 		constexpr int kBase = 1;
 		constexpr int kPermanent = 2;
 		constexpr int kTemporary = 4;
 		constexpr int kDamage = 8;
 
-		RE::ActorValue av = LookupActorValueByName(av_name);
+		RE::ActorValue av = LookupActorValueByName(av_name.c_str());
 
-		logger::debug("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
+		logger::debug("testing {}, av gotten {}", av_name, magic_enum::enum_name(av));
 
 		if (!a_this || av == RE::ActorValue::kNone)
 			return 0;//Actually throw an exception.
@@ -65,15 +64,40 @@ namespace LEX
 		return value;
 	}
 
-	void ModActorValue(RE::Actor* a_this, String av_name, int a_modifier, float value)
+	void ModActorValue(RE::Actor* a_this, std::string av_name, std::string a_modifier, float value)
 	{
 
-		RE::ActorValue av = LookupActorValueByName(av_name);
+		RE::ActorValue av = LookupActorValueByName(av_name.c_str());
 
-		if (!a_this || av == RE::ActorValue::kNone)
+		if (!a_this || av == RE::ActorValue::kNone) {
+			report::runtime::failure("Target actor is null.");
 			return;//Actually throw an exception.
+		}
 
-		RE::ACTOR_VALUE_MODIFIER modifier = (RE::ACTOR_VALUE_MODIFIER)a_modifier;
+		if (av == RE::ActorValue::kNone) {
+			report::runtime::failure("'{}' isn't an actor value name.", av_name);
+			return;//Actually throw an exception.
+		}
+
+
+		RE::ACTOR_VALUE_MODIFIER modifier;
+
+		switch (Hash<HashFlags::Insensitive>(a_modifier))
+		{
+		case "base"_ih:
+			modifier = RE::ACTOR_VALUE_MODIFIER::kTotal; break;
+		case "damage"_ih:
+			modifier = RE::ACTOR_VALUE_MODIFIER::kDamage; break;
+		case "temporary"_ih:
+			modifier = RE::ACTOR_VALUE_MODIFIER::kTemporary; break;
+		case "permanent"_ih:
+			modifier = RE::ACTOR_VALUE_MODIFIER::kPermanent; break;
+
+		default:
+			report::runtime::warn("Given input '{}' isn't an actor value modifier.", a_modifier);
+			return;
+		}
+
 
 		switch (modifier)
 		{
@@ -91,10 +115,10 @@ namespace LEX
 		}
 	}
 
-	void SetActorValue(RE::Actor* a_this, String av_name, float value)
+	void SetActorValue(RE::Actor* a_this, std::string av_name, float value)
 	{
 
-		RE::ActorValue av = LookupActorValueByName(av_name);
+		RE::ActorValue av = LookupActorValueByName(av_name.c_str());
 
 		if (!a_this || av == RE::ActorValue::kNone)
 			return;//Actually throw an exception.
@@ -177,10 +201,10 @@ namespace LEX
 
 
 
-	int GetPerkCount(RE::Actor* a_this, LEX::String av_name)
+	int GetPerkCount(RE::Actor* a_this, std::string av_name)
 	{
 		//I seek to rework this.
-		RE::ActorValue av = LookupActorValueByName(av_name);
+		RE::ActorValue av = LookupActorValueByName(av_name.c_str());
 
 
 		RE::ActorValueList* singleton = RE::ActorValueList::GetSingleton();
@@ -594,23 +618,37 @@ namespace LEX
 
 
 
-	struct RegisterDump
+
+
+	template <auto Test>
+	inline void FunctionTest()
 	{
-		inline static int no = 0;
 
-		RegisterDump& operator=(bool result)
-		{
-			logger::info("#{} = {}", ++no, result);
-			return *this;
-		}
-	};
+	}
 
-	void temp_NativeFormulaRegister()
+	template <typename = int>
+	void Test()
+	{
+		__FUNCTION__;
+	}
+
+
+	INITIALIZE("function_register")
 	{	
+
+		//constexpr auto test = __FUNCTION__;
+		//If I can, I'd like to make a automatical registration function that will use the relative namespace
+		// (So if the caller and it are both in lex it ignores that bit) in order to figure out what the path
+		// is.
+		//You can kinda tell this by using __FUNCTION__ to tell where it is we actually are, and counting backwards
+		// until you hit :: that isn't within <>
+
+
 		RegisterDump dump;
+		
+		//A possible idea about 
 			
-			
-			
+		
 		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend2, "Shared::GameObjects::GetActorValue2");				//01
 		dump = ProcedureHandler::instance->RegisterFunction(GetLevel, "Shared::GameObjects::GetLevel");									//02
 		dump = ProcedureHandler::instance->RegisterFunction(IsInFaction, "Shared::GameObjects::IsInFaction");							//03
@@ -647,6 +685,7 @@ namespace LEX
 
 		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");					//27
 		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");	//28
+		
 	}
 
 #endif

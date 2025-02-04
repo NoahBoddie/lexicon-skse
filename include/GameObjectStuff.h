@@ -37,12 +37,20 @@ namespace LEX
 			return false;
 		}
 
+
+		virtual void Initialize(ObjectData& data) override
+		{
+			auto form = data.get<RE::TESForm*>();
+			TryAttach(form);
+		}
+
+
 		TypeOffset GetTypeOffset(ObjectData& data) override
 		{
 			auto form = data.get<RE::TESForm*>();
 
 			if (!form){
-				static_cast<TypeOffset>(RE::FormType::None);
+				return static_cast<TypeOffset>(RE::FormType::None);
 			}
 
 			if (form->IsPlayerRef() == true) {
@@ -58,10 +66,12 @@ namespace LEX
 
 		void TryDetach(RE::TESForm*& target)
 		{
-			if (target && target->IsPlayerRef() == false)
+			if (target)
 			{
 				if (auto target_ref = target->AsReference(); target_ref) {
+					auto before = target_ref->BSHandleRefObject::QRefCount();
 					target_ref->DecRefCount();
+					logger::debug("Decrement {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
 				}
 
 				target = nullptr;
@@ -70,10 +80,14 @@ namespace LEX
 
 		void TryAttach(RE::TESForm* target)
 		{
-			if (target && target->IsPlayerRef() == false)
+			if (target)
 			{
-				if (auto target_ref = target->AsReference(); target_ref)
+				if (auto target_ref = target->AsReference(); target_ref) {
+					auto before = target_ref->BSHandleRefObject::QRefCount();
 					target_ref->IncRefCount();
+					logger::debug("Increment {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
+
+				}
 			}
 		}
 
@@ -85,11 +99,10 @@ namespace LEX
 
 			if (a_self != a_other){
 				TryDetach(a_self);	
-			}
-			
-			__super::Copy(self, other);
+				__super::Copy(self, other);
+				TryAttach(a_self);
 
-			TryAttach(a_self);
+			}
 		
 		}
 
@@ -144,8 +157,10 @@ namespace LEX
 			
 			//report::debug("form is named {} with formtype {}", form->GetName(), magic_enum::enum_name(form->GetFormType()));
 
-
-			return skyrim_cast<Form*>(form);
+			if constexpr (std::is_same_v<Form, RE::TESForm>)
+				return form;
+			else
+				return skyrim_cast<Form*>(form);
 		}
 	};
 	

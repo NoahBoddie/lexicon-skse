@@ -6,6 +6,8 @@
 #include "Lexicon/Engine/SettingManager.h"
 
 
+#include "ConditionFunction.h"
+
 using namespace SKSE;
 using namespace SKSE::log;
 using namespace SKSE::stl;
@@ -111,9 +113,11 @@ void InitializeMessaging() {
             Component::Link(LinkFlag::Declaration);
 
             Component::Link(LinkFlag::Definition);
+            Initializer::Execute("function_register");
+            break;
 
-            temp_NativeFormulaRegister();
-
+        case MessagingInterface::kInputLoaded:
+            Install();
             break;
 
         case MessagingInterface::kDataLoaded:
@@ -133,6 +137,7 @@ void InitializeMessaging() {
             [[fallthrough]];
         case MessagingInterface::kSaveGame:
         {
+            break;
             Interface* intf = nullptr;
             //RequestInterface_Impl(intf, "something", 1);
 
@@ -247,7 +252,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     logger::InitializeLogging();
     //SETTING_PATH;
     
-//#ifdef _DEBUG
+#ifdef _DEBUG
 
     
 
@@ -263,7 +268,8 @@ SKSEPluginLoad(const LoadInterface* skse) {
             input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
         } while (!IsDebuggerPresent() && input != IDCANCEL);
     }
-//#endif
+#endif
+
     TestFunction();
     const auto* plugin = PluginDeclaration::GetSingleton();
     auto version = plugin->GetVersion();
@@ -276,6 +282,8 @@ SKSEPluginLoad(const LoadInterface* skse) {
     logger::info("___C");
     LexTesting();
     //TestParse();
+    
+    
 
     log::info("{} has finished loading.", plugin->GetName());
 
