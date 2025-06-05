@@ -4,7 +4,7 @@
 
 namespace LEX
 {
-
+	//*
 	ENUM(ExtraForm)
 	{
 		//This is a list of forms that other forms derive from, allowing for a far greater representation of what an object is.
@@ -121,7 +121,7 @@ namespace LEX
 
 			RE::TESForm* self = a_self.get<Type>();
 
-			ITypePolicy* type = IdentityManager::instance->GetTypeByID(id);
+			ITypeInfo* type = IdentityManager::instance->GetTypeByID(id);
 			
 			return std::format("{}::({}<{:08X}>)", type ? type->GetName() : "Form", self ? self->GetFormEditorID() : "", self ? self->GetFormID() : 0);
 		}
@@ -138,9 +138,9 @@ namespace LEX
 	template <std::derived_from<RE::TESForm> Form>
 	struct ObjectTranslator<Form*>
 	{
-		RE::TESForm* operator()(Form*& val)
+		RE::TESForm* operator()(const Form* form)
 		{
-			return val;
+			return unconst(form);
 
 		}
 	};
@@ -170,7 +170,7 @@ namespace LEX
 	template <std::derived_from<RE::TESForm> Form>
 	struct VariableType<Form*>
 	{
-		AbstractTypePolicy* operator()(const Form* form)
+		TypeInfo* operator()(const Form* form)
 		{
 
 			TypeOffset offset;
@@ -201,18 +201,14 @@ namespace LEX
 
 
 
-	/*
-	template <pointer_derived_from<RE::TESForm> FormPtr>
-	struct VariableType<FormPtr>
+	void Test()
 	{
-		using Form = std::remove_pointer_t<FormPtr>;
+		VariableType<RE::TESForm*>{};
+		constexpr bool value = detail::call_class_has_var_type<RE::TESForm*>;
+		//GetVariableType<RE::TESForm*>();
+	}
 
-		AbstractTypePolicy* operator()(const FormPtr* form)
-		{
-			return VariableType<Form>{}(form ? *form : nullptr);
-		}
-	};
-	//*/
+
 
 //Please move this.
 #ifdef LEX_SOURCE
@@ -283,4 +279,6 @@ namespace LEX
 	};
 
 #endif
+
+	//*/
 }

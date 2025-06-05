@@ -33,8 +33,7 @@
             "fmt",
             "spdlog",
             "magic-enum",
-            "boost-regex",
-            "boost-multiprecision"
+            "boost-regex"
           ]
         }
     },

@@ -96,118 +96,190 @@ void LogDis(std::string_view name, float value)
     logger::info("The current health of {} is {}", name, value);
 }
 
+
+
+
+
+
+
 void InitializeMessaging() {
     if (!GetMessagingInterface()->RegisterListener([](MessagingInterface::Message* message) {
-        switch (message->type) {
-        case MessagingInterface::kPostLoad:
-
-            //if (LEX::ProjectManager::instance->CreateProject("ActorValueGenerator", nullptr) != LEX::APIResult::Success) { logger::info("AVG has experienced failure"); }
-
-            break;
-            // It is now safe to do multithreaded operations, or operations against other plugins.
-
-        case MessagingInterface::kPostPostLoad: // Called after all kPostLoad message handlers have run.
-
-            Component::Link(LinkFlag::Loaded);
-
-            Component::Link(LinkFlag::Declaration);
-
-            Component::Link(LinkFlag::Definition);
-            Initializer::Execute("function_register");
-            break;
-
-        case MessagingInterface::kInputLoaded:
-            Install();
-            break;
-
-        case MessagingInterface::kDataLoaded:
-            logger::info("s1");
-            {
-                //auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
-                //Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
-
-                Component::Link(LinkFlag::External);
-
-                //logger::info("Project {}", LEX::Formula<float>::Run("GetPlayer().ProjectTest()", "ActorValueGenerator::Commons"));
-                
-            }
-
-            logger::info("s2");
-            //break;
-            [[fallthrough]];
-        case MessagingInterface::kSaveGame:
+        
+        try
         {
-            break;
-            Interface* intf = nullptr;
-            //RequestInterface_Impl(intf, "something", 1);
+            switch (message->type) {
+            case MessagingInterface::kPostLoad:
 
-            //*
-            logger::info("a");
-            //return;
-            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            logger::info("b");
-            Object test = MakeObject(player);
-            logger::info("c");
-            Object test2 = test;
-            logger::info("d");
-            //float number = Formula<float>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::GetActorValue('Health')");
-            float number = player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
-            //float number = 65;
-            //float number = 100;
-            IdentityManager;
-            auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
-            Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
-            number = Formula<float>::Run("GetPlayer().GetActorValue('Health')");
+                //if (LEX::ProjectManager::instance->CreateProject("ActorValueGenerator", nullptr) != LEX::APIResult::Success) { logger::info("AVG has experienced failure"); }
 
-            logger::info("e");
-            
-            //std::string number = result.AsNumber().string();
-            
-            LogDis("player->GetDisplayFullName()", number);
+                break;
+                // It is now safe to do multithreaded operations, or operations against other plugins.
 
-            using TTT = float(RE::Actor::*)();
-            
-            number = 0;
-            
-            report::info("resetting...");
+            case MessagingInterface::kPostPostLoad: // Called after all kPostLoad message handlers have run.
 
-            auto form = Formula<float(RE::Actor::*)()>::Create("GetActorValue('Health')");
-            
-            number = form(player);
+                Component::Link(LinkFlag::Loaded);
 
-            report::info("player->GetDisplayFullName() {}", number);
-            if constexpr (0)
-            {
+                Component::Link(LinkFlag::Declaration);
 
-                constexpr auto text1 = L"Request for debugger detected. If you wish to attach one and press Ok, do so now if not please press Cancel.";
-                constexpr auto text2 = L"Debugger still not detected. If you wish to continue without one please press Cancel.";
-                constexpr auto caption = L"Debugger Required";
+                Component::Link(LinkFlag::Definition);
+                Initializer::Execute("function_register");
+                break;
 
-                int input = 0;
+            case MessagingInterface::kInputLoaded:
+                Install();
+                break;
 
-                do
+            case MessagingInterface::kDataLoaded:
+                logger::info("s1");
                 {
-                    input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
-                } while (!IsDebuggerPresent() && input != IDCANCEL);
+                    //auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
+                    //Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
+
+                    Component::Link(LinkFlag::External);
+
+                    //logger::info("Project {}", LEX::Formula<float>::Run("GetPlayer().ProjectTest()", "ActorValueGenerator::Commons"));
+
+                }
+
+                logger::info("s2");
+                //break;
+                [[fallthrough]];
+            case MessagingInterface::kSaveGame:
+            {
+                break;
+                Interface* intf = nullptr;
+                //RequestInterface_Impl(intf, "something", 1);
+
+                //*
+                logger::info("a");
+                //return;
+                RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+                logger::info("b");
+                //Object test = MakeObject(player);
+                logger::info("c");
+                //Object test2 = test;
+                logger::info("d");
+                float number = Formula<float>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::GetActorValue('Health')");
+                //float number = player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
+                //float number = 65;
+                //float number = 100;
+                IdentityManager;
+                auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
+                Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
+                number = Formula<float>::Run("GetPlayer().GetActorValue('Health')");
+
+                logger::info("e");
+
+                //std::string number = result.AsNumber().string();
+
+                LogDis("player->GetDisplayFullName()", number);
+
+                using TTT = float(RE::Actor::*)();
+
+                number = 0;
+
+                report::info("resetting...");
+
+                auto form = Formula<float(RE::Actor::*)()>::Create("GetActorValue('Health')");
+
+                //This needs to happen
+
+                constexpr bool testfafa = has_object_info<obj_trans_type<RE::PlayerCharacter*>> && !std::is_same_v<obj_trans_type<RE::PlayerCharacter*>, LEX::detail::not_implemented>;
+                Object into1 = MakeObject(player);
+                RuntimeVariable into = player;
+
+                const RE::PlayerCharacter*& reft = make_const(player);
+                ObjectTranslator<RE::PlayerCharacter*>{}(player);
+                number = form(player)->Call();
+
+                report::info("player->GetDisplayFullName() {}", number);
+                if constexpr (0)
+                {
+
+                    constexpr auto text1 = L"Request for debugger detected. If you wish to attach one and press Ok, do so now if not please press Cancel.";
+                    constexpr auto text2 = L"Debugger still not detected. If you wish to continue without one please press Cancel.";
+                    constexpr auto caption = L"Debugger Required";
+
+                    int input = 0;
+
+                    do
+                    {
+                        input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
+                    } while (!IsDebuggerPresent() && input != IDCANCEL);
+                }
+
+                unsigned int levelTest = Formula<unsigned int>::Run("(PlayerToActor() as Actor).GetLevel()");
+
+
+                report::info("player level is {}", levelTest);
+                //*/
             }
-
-            unsigned int levelTest = Formula<unsigned int>::Run("(PlayerToActor() as Actor).GetLevel()");
-
-
-            report::info("player level is {}", levelTest);
-            //*/
-        }
             break;
+            }
+        }
+        catch (...)
+        {
+
+            constexpr auto text = L"An unhandled exception has been encountered when interpreting a message in LexiconSKSE.dll. Press Ok to continue despite risk or Cancel to terminate.";
+            constexpr auto caption = L"Unhandled Error";
+
+            int input = 0;
+
+            input = MessageBoxW(NULL, text, caption, MB_OKCANCEL);
+
+            if (input == IDCANCEL)
+            {
+                RE::Main::GetSingleton()->quitGame = true;
+            }
         }
         })) {
         SKSE::stl::report_and_fail("Unable to register message listener.");
     }
 }
 
+
+
+
 void TestEm()
 {
+    
+    std::forward<int>(1);
+    const int* i2 = 0;
+    using Unc = qualify_extracted_type<const int*&, std::remove_const_t>::type;
+    const int i3 = 1;
+    int i4 = 1;
+    int** i5 = nullptr;
 
+    const RE::TESForm* form = nullptr;
+    RE::TESForm* unc_form = unconst(form);
+
+    {
+        auto result = unconst(1);
+    }
+    {
+        auto result = unconst(i2);
+    }
+    {
+        auto result = unconst(i3);
+    }
+    {
+        auto result = make_const(i2);
+    }
+    {
+        auto result = make_const(i3);
+    } {
+        auto result = make_const(i4);
+    } {
+        auto result = make_const(1);
+    } {
+        auto result = std::as_const(i5);
+    }
+    
+
+    using Extract = qualify_extracted_type<RE::PlayerCharacter*, std::add_volatile_t, std::add_const_t>::type;
+    static_assert(std::is_same_v<Extract, volatile const RE::PlayerCharacter*>);
 }
+
 
 
 
@@ -231,7 +303,8 @@ INITIALIZE()
 INITIALIZE()
 {
     //This gives 1 too many.
-    RegisterObjectType<RE::TESForm*>("FORM", (TypeOffset)RE::FormType::Max + ExtraForm::kTotal);
+    RegisterObjectType<RE::TESForm*>("FORM", (TypeOffset)RE::FormType::Max + ExtraForm::kTotal);    
+
     /*
     RE::TESForm* test = nullptr;
 
@@ -276,6 +349,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     log::info("{} {} is loading...", plugin->GetName(), version);
     Init(skse);
     logger::info("___A");
+    Initializer::Execute("main_init");
     Initializer::Execute();
     logger::info("___B");
     InitializeMessaging();
@@ -283,8 +357,8 @@ SKSEPluginLoad(const LoadInterface* skse) {
     LexTesting();
     //TestParse();
     
+    spdlog::log(spdlog::level::critical, "something {}", 1);
     
-
     log::info("{} has finished loading.", plugin->GetName());
 
 

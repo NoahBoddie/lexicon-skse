@@ -578,7 +578,7 @@ namespace LEX
 	{
 		//Unvariable<RE::FormID>{}.operator()(nullptr);
 		auto form = RE::TESForm::LookupByID(id);
-		logger::info("FRM ID {:X}({}) {}", id, id, !!form);
+		report::break_info("FRM ID {:X}({}) {}", id, id, !!form);
 		if (id == 6)
 		{
 			report::break_info("What the fuck is this");
@@ -587,16 +587,16 @@ namespace LEX
 		return form;
 	};
 
-	RE::TESForm* LookupByLocalID(StaticTargetTag, String plugin, RE::FormID id)
+	RE::TESForm* LookupByLocalID(StaticTargetTag, std::string_view plugin, RE::FormID id)
 	{
 		RE::TESForm* form = nullptr;
 
 
 		if (auto data_handler = RE::TESDataHandler::GetSingleton(); data_handler) {
-			form = data_handler->LookupForm(id, plugin.view());
+			form = data_handler->LookupForm(id, plugin);
 		}
 
-		logger::info("LOC ID {} {:X} {}", plugin.view(), id, !!form);
+		logger::info("LOC ID {} {:X} {}", plugin, id, !!form);
 
 		return form;
 	};
@@ -647,7 +647,8 @@ namespace LEX
 		RegisterDump dump;
 		
 		//A possible idea about 
-			
+		
+		//*
 		
 		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend2, "Shared::GameObjects::GetActorValue2");				//01
 		dump = ProcedureHandler::instance->RegisterFunction(GetLevel, "Shared::GameObjects::GetLevel");									//02
@@ -685,7 +686,7 @@ namespace LEX
 
 		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");					//27
 		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");	//28
-		
+		//*/
 	}
 
 #endif
