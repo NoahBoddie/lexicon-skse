@@ -171,6 +171,10 @@ namespace LEX
 
 	void Install()
 	{
+
+		//SE: 328110 + 75F//This can be used to get the result of a given console command call. I can use this to get the last value of the console
+		// then load it into a thread local system or something like that, allowing it to return a value through a reference.
+
 		ConditionHook::Patch();
 		ConsoleHook::Patch();
 	}

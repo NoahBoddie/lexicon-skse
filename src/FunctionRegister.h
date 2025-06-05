@@ -21,10 +21,10 @@ namespace LEX
 		return RE::PlayerCharacter::GetSingleton();
 	}
 
-	float GetActorValue_backend(RE::Actor* a_this, String av_name)
+	float GetActorValue_backend(RE::Actor* a_this, std::string_view av_name)
 	{
 		RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
-		logger::info("testing {}, av gotten {}", av_name.view(), magic_enum::enum_name(av));
+		logger::info("testing {}, av gotten {}", av_name, magic_enum::enum_name(av));
 
 		return a_this && av != RE::ActorValue::kNone ? a_this->AsActorValueOwner()->GetActorValue(av) : 0.0f;
 	}
@@ -411,7 +411,7 @@ namespace LEX
 
 		case RE::Setting::Type::kString:
 			if (switch_value == type) {
-				*static_cast<LEX::String*>(out) = setting->GetString();
+				*static_cast<std::string*>(out) = setting->GetString();
 			}
 
 			break;
@@ -433,11 +433,11 @@ namespace LEX
 
 
 	template <typename T, RE::Setting::Type Type>
-	T GetGameSetting(StaticTargetTag, LEX::String setting_name)
+	T GetGameSetting(StaticTargetTag, std::string_view setting_name)
 	{
 		T out{};
 
-		GetGameSettingImpl(setting_name.c_str(), Type, &out);
+		GetGameSettingImpl(setting_name.data(), Type, &out);
 
 		return out;
 	}
@@ -503,11 +503,11 @@ namespace LEX
 		return result;
 	}
 	
-	bool HasKeywordString(RE::TESForm* a_this, LEX::String keyword)
+	bool HasKeywordString(RE::TESForm* a_this, std::string_view keyword)
 	{
 		RE::BGSKeywordForm* key_form = a_this ? a_this->As<RE::BGSKeywordForm>() : nullptr;
 
-		bool result =  key_form ? key_form->HasKeywordString(keyword.view()) : false;
+		bool result =  key_form ? key_form->HasKeywordString(keyword) : false;
 
 		return result;
 	}
@@ -601,9 +601,9 @@ namespace LEX
 		return form;
 	};
 
-	RE::TESForm* LookupByEditorID(StaticTargetTag, String editor_id)
+	RE::TESForm* LookupByEditorID(StaticTargetTag, std::string_view&& editor_id)
 	{
-		auto result = RE::TESForm::LookupByEditorID(editor_id.view());
+		auto result = RE::TESForm::LookupByEditorID(editor_id);
 
 		return result;
 	};
@@ -670,7 +670,7 @@ namespace LEX
 		
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<float, RE::Setting::Type::kFloat>, "Shared::GameObjects::GetGameSettingFloat");		//18
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<bool, RE::Setting::Type::kBool>, "Shared::GameObjects::GetGameSettingBool");			//19
-		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<String, RE::Setting::Type::kString>, "Shared::GameObjects::GetGameSettingString");	//20
+		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<std::string, RE::Setting::Type::kString>, "Shared::GameObjects::GetGameSettingString");	//20
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<int, RE::Setting::Type::kSignedInteger>, "Shared::GameObjects::GetGameSettingInt");	//21
 		
 

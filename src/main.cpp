@@ -187,7 +187,7 @@ void InitializeMessaging() {
                 constexpr bool testfafa = has_object_info<obj_trans_type<RE::PlayerCharacter*>> && !std::is_same_v<obj_trans_type<RE::PlayerCharacter*>, LEX::detail::not_implemented>;
                 Object into1 = MakeObject(player);
                 RuntimeVariable into = player;
-
+                
                 const RE::PlayerCharacter*& reft = make_const(player);
                 ObjectTranslator<RE::PlayerCharacter*>{}(player);
                 number = form(player)->Call();
@@ -240,45 +240,7 @@ void InitializeMessaging() {
 
 
 
-void TestEm()
-{
-    
-    std::forward<int>(1);
-    const int* i2 = 0;
-    using Unc = qualify_extracted_type<const int*&, std::remove_const_t>::type;
-    const int i3 = 1;
-    int i4 = 1;
-    int** i5 = nullptr;
 
-    const RE::TESForm* form = nullptr;
-    RE::TESForm* unc_form = unconst(form);
-
-    {
-        auto result = unconst(1);
-    }
-    {
-        auto result = unconst(i2);
-    }
-    {
-        auto result = unconst(i3);
-    }
-    {
-        auto result = make_const(i2);
-    }
-    {
-        auto result = make_const(i3);
-    } {
-        auto result = make_const(i4);
-    } {
-        auto result = make_const(1);
-    } {
-        auto result = std::as_const(i5);
-    }
-    
-
-    using Extract = qualify_extracted_type<RE::PlayerCharacter*, std::add_volatile_t, std::add_const_t>::type;
-    static_assert(std::is_same_v<Extract, volatile const RE::PlayerCharacter*>);
-}
 
 
 
