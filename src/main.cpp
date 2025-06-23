@@ -219,18 +219,8 @@ void InitializeMessaging() {
         }
         catch (...)
         {
-
-            constexpr auto text = L"An unhandled exception has been encountered when interpreting a message in LexiconSKSE.dll. Press Ok to continue despite risk or Cancel to terminate.";
-            constexpr auto caption = L"Unhandled Error";
-
-            int input = 0;
-
-            input = MessageBoxW(NULL, text, caption, MB_OKCANCEL);
-
-            if (input == IDCANCEL)
-            {
-                RE::Main::GetSingleton()->quitGame = true;
-            }
+            SKSE::stl::report_and_fail(std::format("An unhandled exception has been encountered when interpreting a message in LexiconSKSE.dll. Press ok to quit. {}", 
+                magic_enum::enum_name((decltype(MessagingInterface::kTotal))message->type)));
         }
         })) {
         SKSE::stl::report_and_fail("Unable to register message listener.");
@@ -287,7 +277,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     logger::InitializeLogging();
     //SETTING_PATH;
     
-#ifdef _DEBUG
+//#ifdef _DEBUG
 
     
 
@@ -303,7 +293,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
             input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
         } while (!IsDebuggerPresent() && input != IDCANCEL);
     }
-#endif
+//#endif
 
     TestFunction();
     const auto* plugin = PluginDeclaration::GetSingleton();

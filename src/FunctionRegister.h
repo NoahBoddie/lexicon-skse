@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Console.h"
+
 namespace LEX
 {
 	RE::ActorValue LookupActorValueByName(const char* name)
@@ -608,6 +610,43 @@ namespace LEX
 		return result;
 	};
 
+	int ExecuteConsoleCommand(StaticTargetTag, RE::TESObjectREFR* refr, std::string_view&& command, double& out)
+	{
+		//Pulled from console 
+		const auto scriptFactory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::Script>();
+		std::unique_ptr<RE::Script> script{ scriptFactory ? scriptFactory->Create() : nullptr };
+
+		ClearRetValue();
+
+		int result = 0;
+		if (script) {
+			script->SetCommand(command);
+			script->CompileAndRun(refr);
+
+			if (ConsoleWasCalled() == true)
+				if (IsNoReturnValue() == false) {
+					out = consoleReturn;
+					result = 2;
+				}
+				else
+					result = 1;
+			else
+			{
+
+				logger::error("Error in command: {}, 0x{:X}", command, refr->formID);
+			}
+		}
+		else {
+			logger::error("Failed to create script for command: {}, 0x{:X}", command, refr->formID);
+		}
+
+
+		//auto result = RE::TESForm::LookupByEditorID(editor_id);
+
+		return result;
+	};
+
+
 	void TESTTHING()
 	{
 		//using Type = int;
@@ -676,16 +715,17 @@ namespace LEX
 
 
 		
-		dump = ProcedureHandler::instance->RegisterFunction(LookupByFormID, "Shared::GameObjects::LookupByFormID");			//22
-		dump = ProcedureHandler::instance->RegisterFunction(LookupByLocalID, "Shared::GameObjects::LookupByLocalID");		//23
-		dump = ProcedureHandler::instance->RegisterFunction(LookupByEditorID, "Shared::GameObjects::LookupByEditorID");		//24
+		dump = ProcedureHandler::instance->RegisterFunction(LookupByFormID, "Shared::GameObjects::LookupByFormID");					//22
+		dump = ProcedureHandler::instance->RegisterFunction(LookupByLocalID, "Shared::GameObjects::LookupByLocalID");				//23
+		dump = ProcedureHandler::instance->RegisterFunction(LookupByEditorID, "Shared::GameObjects::LookupByEditorID");				//24
 
 
-		dump = ProcedureHandler::instance->RegisterFunction(SetActorValue, "Shared::GameObjects::SetActorValue");			//25
-		dump = ProcedureHandler::instance->RegisterFunction(ModActorValue, "Shared::GameObjects::ModActorValue");			//26
+		dump = ProcedureHandler::instance->RegisterFunction(SetActorValue, "Shared::GameObjects::SetActorValue");					//25
+		dump = ProcedureHandler::instance->RegisterFunction(ModActorValue, "Shared::GameObjects::ModActorValue");					//26
 
-		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");					//27
-		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");	//28
+		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");							//27
+		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");			//28
+		dump = ProcedureHandler::instance->RegisterFunction(ExecuteConsoleCommand, "Shared::Console::ExecuteConsoleCommand");	//28
 		//*/
 	}
 

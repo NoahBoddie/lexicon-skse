@@ -125,7 +125,7 @@ namespace util {
     using SKSE::stl::report_and_fail;
 }
 
-#define RELOCATION_OFFSET(SE, AE) REL::VariantOffset(SE, AE, 0).offset()
+#define RELOCATION_OFFSET(SE, AE) (ptrdiff_t)REL::VariantOffset(SE, AE, SE).offset()
 
 //#define SETTING_PATH Data/SKSE/Plugins
 
