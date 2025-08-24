@@ -578,15 +578,7 @@ namespace LEX
 
 	RE::TESForm* LookupByFormID(StaticTargetTag, RE::FormID id)
 	{
-		//Unvariable<RE::FormID>{}.operator()(nullptr);
-		auto form = RE::TESForm::LookupByID(id);
-		report::break_info("FRM ID {:X}({}) {}", id, id, !!form);
-		if (id == 6)
-		{
-			report::break_info("What the fuck is this");
-		}
-
-		return form;
+		return RE::TESForm::LookupByID(id);
 	};
 
 	RE::TESForm* LookupByLocalID(StaticTargetTag, std::string_view plugin, RE::FormID id)

@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         LexiconSKSE
-        VERSION 1.0.0
+        VERSION 0.1.1.8
         DESCRIPTION "Placeholder."
         LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
@@ -65,15 +65,22 @@ find_package(CommonLibSSE CONFIG REQUIRED)
 add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
 add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 
+#target_commonlibsse_properties(${PROJECT_NAME} ${headers} ${sources})
+#add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
+
 set(TEST_BUILD OFF)
 
 
 
 set (SETTING_PATH Data/SKSE/Plugins)
 
-
-add_subdirectory("C:/Users/Noah/Desktop/Modding/[Lab]/{Lab Tools}/lexicon" Lexicon)
-add_dependencies(Lexicon Lexicon::Lexicon)
+#RGL stuff
+if (NOT LexPath)
+	cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH CMAKE_REPO_DIR)
+	set(LexPath "${CMAKE_REPO_DIR}/lexicon")
+endif()
+add_subdirectory(${LexPath} Lexicon)
+add_dependencies(${PROJECT_NAME} Lexicon::Lexicon)
 	
 	
 
