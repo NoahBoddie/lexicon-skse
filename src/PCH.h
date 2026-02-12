@@ -103,6 +103,7 @@
 #include <Windows.h>
 #include <Psapi.h>
 #undef cdecl // Workaround for Clang 14 CMake configure error.
+#undef GetObject
 
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/msvc_sink.h>

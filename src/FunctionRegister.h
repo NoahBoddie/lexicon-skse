@@ -23,16 +23,9 @@ namespace LEX
 		return RE::PlayerCharacter::GetSingleton();
 	}
 
-	float GetActorValue_backend(RE::Actor* a_this, std::string_view av_name)
-	{
-		RE::ActorValue av = RE::ActorValueList::GetSingleton()->LookupActorValueByName(av_name);
-		logger::info("testing {}, av gotten {}", av_name, magic_enum::enum_name(av));
-
-		return a_this && av != RE::ActorValue::kNone ? a_this->AsActorValueOwner()->GetActorValue(av) : 0.0f;
-	}
 
 
-	float GetActorValue_backend2(RE::Actor* a_this, std::string av_name, int flags)
+	float GetActorValue_impl(RE::Actor* a_this, std::string av_name, int flags)
 	{
 		constexpr int kBase = 1;
 		constexpr int kPermanent = 2;
@@ -41,7 +34,6 @@ namespace LEX
 
 		RE::ActorValue av = LookupActorValueByName(av_name.c_str());
 
-		logger::debug("testing {}, av gotten {}", av_name, magic_enum::enum_name(av));
 
 		if (!a_this || av == RE::ActorValue::kNone)
 			return 0;//Actually throw an exception.
@@ -104,12 +96,12 @@ namespace LEX
 		switch (modifier)
 		{
 		case RE::ACTOR_VALUE_MODIFIER::kTotal:
-			return a_this->AsActorValueOwner()->ModActorValue(av, value);
+			return a_this->AsActorValueOwner()->ModBaseActorValue(av, value);
 
 		case RE::ACTOR_VALUE_MODIFIER::kDamage:
 		case RE::ACTOR_VALUE_MODIFIER::kPermanent:
 		case RE::ACTOR_VALUE_MODIFIER::kTemporary:
-			return a_this->AsActorValueOwner()->RestoreActorValue(modifier, av, value);
+			return a_this->AsActorValueOwner()->ModActorValue(modifier, av, value);
 
 		default:
 			//Invalid value used.
@@ -233,7 +225,7 @@ namespace LEX
 
 		if (av < RE::ActorValue::kTotal)
 		{
-			RE::ActorValueInfo* info = singleton->GetActorValue(av);
+			RE::ActorValueInfo* info = singleton->GetActorValueInfo(av);
 
 			if (!info) {
 				logger::error("Actor Value Info '{}' couldn't be found", av_name);
@@ -590,8 +582,6 @@ namespace LEX
 			form = data_handler->LookupForm(id, plugin);
 		}
 
-		logger::info("LOC ID {} {:X} {}", plugin, id, !!form);
-
 		return form;
 	};
 
@@ -601,6 +591,25 @@ namespace LEX
 
 		return result;
 	};
+
+
+	void Print(StaticTargetTag, std::string_view&& msg)
+	{
+		//If I could load this with some shit that would be cool
+		logger::info("{}", msg);
+	}
+	
+	void PrintNotification(StaticTargetTag, std::string_view&& msg)
+	{
+		RE::DebugNotification(msg.data());
+	}
+
+
+	void PrintMessage(StaticTargetTag, std::string_view&& msg)
+	{
+		RE::DebugMessageBox(msg.data());
+	}
+
 
 	int ExecuteConsoleCommand(StaticTargetTag, RE::TESObjectREFR* refr, std::string_view&& command, double& out)
 	{
@@ -639,14 +648,17 @@ namespace LEX
 	};
 
 
-	void TESTTHING()
+
+	bool IsSneaking(RE::Actor* a_this)
 	{
-		//using Type = int;
-		//int Type = 2;
-		//auto test = (Type)!1.f;
+		return a_this->AsActorState()->IsSneaking();
 	}
 
+	bool IsWeaponDrawn(RE::Actor* a_this)
+	{
+		return a_this->AsActorState()->IsWeaponDrawn();
 
+	}
 
 
 
@@ -681,7 +693,7 @@ namespace LEX
 		
 		//*
 		
-		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend2, "Shared::GameObjects::GetActorValue2");				//01
+		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_impl, "Shared::GameObjects::GetActorValue");					//01
 		dump = ProcedureHandler::instance->RegisterFunction(GetLevel, "Shared::GameObjects::GetLevel");									//02
 		dump = ProcedureHandler::instance->RegisterFunction(IsInFaction, "Shared::GameObjects::IsInFaction");							//03
 		dump = ProcedureHandler::instance->RegisterFunction(IsInFactionRank, "Shared::GameObjects::IsInFactionRank");					//04
@@ -716,8 +728,14 @@ namespace LEX
 		dump = ProcedureHandler::instance->RegisterFunction(ModActorValue, "Shared::GameObjects::ModActorValue");					//26
 
 		dump = ProcedureHandler::instance->RegisterFunction(GetPlayer, "Shared::GameObjects::GetPlayer");							//27
-		dump = ProcedureHandler::instance->RegisterFunction(GetActorValue_backend, "Shared::GameObjects::GetActorValue");			//28
-		dump = ProcedureHandler::instance->RegisterFunction(ExecuteConsoleCommand, "Shared::Console::ExecuteConsoleCommand");	//28
+		dump = ProcedureHandler::instance->RegisterFunction(ExecuteConsoleCommand, "Shared::Console::ExecuteConsoleCommand");		//28
+
+		dump = ProcedureHandler::instance->RegisterFunction(Print, "Shared::GameObjects::Print");								//29
+		dump = ProcedureHandler::instance->RegisterFunction(PrintMessage, "Shared::GameObjects::PrintMessage");					//30
+		dump = ProcedureHandler::instance->RegisterFunction(PrintNotification, "Shared::GameObjects::PrintNotification");			//31
+
+		dump = ProcedureHandler::instance->RegisterFunction(IsSneaking, "Shared::GameObjects::IsSneaking");			//32
+		dump = ProcedureHandler::instance->RegisterFunction(IsWeaponDrawn, "Shared::GameObjects::IsWeaponDrawn");			//33
 		//*/
 	}
 

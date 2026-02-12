@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         LexiconSKSE
-        VERSION 0.1.1.8
+        VERSION 0.1.4.3
         DESCRIPTION "Placeholder."
         LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
@@ -18,10 +18,12 @@ include(GNUInstallDirs)
 
 set(headers
         include/GameObjectStuff.h
-    )
+        
+)
+set(sources
+    
+)
 
-#message("* ${CMAKE_PROJECT_NAME} vs ${PROJECT_NAME}")
-message("* ${CMAKE_CURRENT_BINARY_DIR}")
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     configure_file(
@@ -29,16 +31,23 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             ${CMAKE_CURRENT_BINARY_DIR}/version.rc
             @ONLY)
 
+    set(headers
+        ${headers}
+        "src/MergeMapperPluginAPI.h"
+        src/FunctionRegister.h
+        src/ConditionFunction.h
+        "src/FunctorManager.h"
+        "src/ConditionTLS.h"
+    )
+
     set(sources
+            ${sources}
             src/main.cpp
-            src/FunctionRegister.h
-            src/ConditionFunction.h
+            "src/MergeMapperPluginAPI.cpp"
+            "src/GameObjectStuff.cpp"
+            "src/MergeMapperPluginAPI.cpp"
 
-            ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-else()
-#We'll want to empty this out when we do this.
-set(sources)
-
+            ${CMAKE_CURRENT_BINARY_DIR}/version.rc )
 endif()
 
 
@@ -53,21 +62,30 @@ source_group(
 ### Build options
 #########################################################################################################################
 message("Options:")
-option(BUILD_TESTS "Build unit tests." OFF)
+Set(BUILD_TESTS OFF)
 message("\tTests: ${BUILD_TESTS}")
 
 ########################################################################################################################
 ## Configure target DLL
 ########################################################################################################################
+find_package(directxtk CONFIG REQUIRED)
 find_package(CommonLibSSE CONFIG REQUIRED)
 
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+find_package(nlohmann_json REQUIRED)
+find_package(nlohmann_json_schema_validator REQUIRED)
+endif()
 
-add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
-add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
-
-#target_commonlibsse_properties(${PROJECT_NAME} ${headers} ${sources})
+#add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
 #add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
-
+add_library(
+		${PROJECT_NAME}
+		SHARED
+		${headers}
+		${sources}
+)
+target_commonlibsse_properties(${PROJECT_NAME} ${headers} ${sources})
+add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
 set(TEST_BUILD OFF)
 
 
@@ -79,17 +97,26 @@ if (NOT LexPath)
 	cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH CMAKE_REPO_DIR)
 	set(LexPath "${CMAKE_REPO_DIR}/lexicon")
 endif()
-add_subdirectory(${LexPath} Lexicon)
-add_dependencies(${PROJECT_NAME} Lexicon::Lexicon)
-	
-	
 
+add_subdirectory(${LexPath} Lexicon)
+add_dependencies(${PROJECT_NAME} Lexicon::Lexicon)	
+
+	
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+target_link_libraries(
+	${PROJECT_NAME}
+	PRIVATE
+        Lexicon::Lexicon
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator::validator
+)
+else()
 target_link_libraries(
 	${PROJECT_NAME}
 	PRIVATE
         Lexicon::Lexicon
 )
-
+endif()
 
 
 	target_compile_options(

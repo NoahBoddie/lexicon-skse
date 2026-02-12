@@ -12,6 +12,10 @@
 #include <iostream>
 #include <stacktrace>
 
+
+#include "nlohmann/json-schema.hpp"
+#include "FunctorManager.h"
+
 int nested_func(int c)
 {
     std::cout << std::stacktrace::current() << '\n';
@@ -44,7 +48,7 @@ static void PrintAST(Record& tree, std::string indent = "")
 
     std::string log = tree.Print<Syntax>();
 
-    RGL_LOG(info, "{}{}", indent, log);
+    RGL_LOG(debug, "{}{}", indent, log);
 
     indent += __dent;
 
@@ -144,103 +148,29 @@ void HandleMessage(MessagingInterface::Message* message)
         break;
 
     case MessagingInterface::kDataLoaded:
-        logger::info("s1");
-        {
-            //auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
-            //Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
-
-            Component::Link(LinkFlag::External);
-
-            //logger::info("Project {}", LEX::Formula<float>::Run("GetPlayer().ProjectTest()", "ActorValueGenerator::Commons"));
-
-        }
-
-        logger::info("s2");
-        //break;
-        [[fallthrough]];
-    case MessagingInterface::kSaveGame:
-    {
+        Component::Link(LinkFlag::External);
         break;
-        Interface* intf = nullptr;
-        //RequestInterface_Impl(intf, "something", 1);
 
-        //*
-        logger::info("a");
-        //return;
-        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-        logger::info("b");
-        //Object test = MakeObject(player);
-        logger::info("c");
-        //Object test2 = test;
-        logger::info("d");
-        float number = Formula<float>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::GetActorValue('Health')");
-        //float number = player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
-        //float number = 65;
-        //float number = 100;
-        IdentityManager;
-        auto something = Formula<RE::PlayerCharacter*>::Run("Shared::GameObjects::GetPlayer()");
-        Formula<void>::Run("Shared::GameObjects::GetPlayer().Shared::GameObjects::DoNothing()");
-        number = Formula<float>::Run("GetPlayer().GetActorValue('Health')");
-
-        logger::info("e");
-
-        //std::string number = result.AsNumber().string();
-
-        LogDis("player->GetDisplayFullName()", number);
-
-        using TTT = float(RE::Actor::*)();
-
-        number = 0;
-
-        report::info("resetting...");
-
-        auto form = Formula<float(RE::Actor::*)()>::Create("GetActorValue('Health')");
-
-        //This needs to happen
-
-        constexpr bool testfafa = has_object_info<obj_trans_type<RE::PlayerCharacter*>> && !std::is_same_v<obj_trans_type<RE::PlayerCharacter*>, LEX::detail::not_implemented>;
-        Object into1 = MakeObject(player);
-        RuntimeVariable into = player;
-
-        const RE::PlayerCharacter*& reft = make_const(player);
-        ObjectTranslator<RE::PlayerCharacter*>{}(player);
-        number = form(player)->Call();
-
-        report::info("player->GetDisplayFullName() {}", number);
-        if constexpr (0)
-        {
-
-            constexpr auto text1 = L"Request for debugger detected. If you wish to attach one and press Ok, do so now if not please press Cancel.";
-            constexpr auto text2 = L"Debugger still not detected. If you wish to continue without one please press Cancel.";
-            constexpr auto caption = L"Debugger Required";
-
-            int input = 0;
-
-            do
-            {
-                input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
-            } while (!IsDebuggerPresent() && input != IDCANCEL);
-        }
-
-        unsigned int levelTest = Formula<unsigned int>::Run("(PlayerToActor() as Actor).GetLevel()");
-
-
-        report::info("player level is {}", levelTest);
-        //*/
-    }
-    break;
     }
 }
 
 void InitializeMessaging() {
     if (!GetMessagingInterface()->RegisterListener([](MessagingInterface::Message* message) {
         
-        if (auto _ = InvokeOrExit([=]() { HandleMessage(message); })) {
-            logger::critical("An unhandled exception has been encountered when interpreting a message in {}. {}",
-                GetModuleName(),
-                magic_enum::enum_name((decltype(MessagingInterface::kTotal))message->type));
+        if (auto _ = InvokeOrExit(message->type <= MessagingInterface::kPostPostLoad, [=]() { HandleMessage(message); })) {
+            //TODO: MessageBox this instead
+
+            auto name = GetModuleName();
+            std::string str = std::format("An unhandled exception has been encountered when interpreting {} message in {}. Please check plugin log for more info.",
+                magic_enum::enum_name((decltype(MessagingInterface::kTotal))message->type), name);
+            
+            MessageBoxA(NULL, str.c_str(), name.c_str(), MB_OK);
+            //logger::critical("An unhandled exception has been encountered when interpreting {} message in {}. Please check logs for crash information (a crash",
+            //    magic_enum::enum_name((decltype(MessagingInterface::kTotal))message->type),
+            //    GetModuleName());
         }
-        })) {
+        })) 
+    {
         SKSE::stl::report_and_fail("Unable to register message listener.");
     }
 }
@@ -256,7 +186,7 @@ void InitializeMessaging() {
 void LexTesting()
 {
     ProjectManager::instance->InitMain();
-    
+    Object test = (RE::TESForm*)RE::PlayerCharacter::GetSingleton();
 
 }
 
@@ -273,7 +203,6 @@ INITIALIZE()
 {
     //This gives 1 too many.
     RegisterObjectType<RE::TESForm*>("FORM", (TypeOffset)RE::FormType::Max + ExtraForm::kTotal);    
-
     /*
     RE::TESForm* test = nullptr;
 
@@ -288,13 +217,208 @@ INITIALIZE()
 
 
 
+void TestParsing()
+{
+
+    using nlohmann::json;
+    using nlohmann::json_schema::json_validator;
+
+    static json schema;
+    
+    try
+    {
+        schema = json::parse(R"(
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema#",
+  "title" : "LexiconSKSE",
+  "description" : "configuration for Lexicon functors.",
+  "type" : "object",
+  "properties" : {
+    "functions" : {
+      "type" : "object",
+      "patternProperties": {
+        "[_\\w][\\w]*": {
+          "properties": {
+            "formula": {
+              "type" : "string"
+            },
+            "default":{
+              "type": "number" 
+            },
+            "parameter" :{
+              "type" : "string"
+            }
+          },
+          "additionalProperties": false,
+          "dependentRequired": {
+            "parameter": ["default"]
+          },
+          "required": ["formula"]
+        }
+      }
+    },
+    "properties": {
+      "type" : "object",
+      "patternProperties": {
+        "[_\\w][\\w]*": {
+          "oneOf": [
+            {
+              "properties" : {
+                "type" : {
+                  "type" : "string",
+                  "const" : "float"
+                },
+                "value":{
+                  "type" : "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "properties" : {
+                "type" : {
+                  "type" : "string",
+                  "const" : "int"
+                },
+                "value":{
+                  "type" : "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            {              
+              "properties" : {
+                "type" : {
+                  "type" : "string",
+                  "const" : "bool"
+                },
+                "value":{
+                  "type" : "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "properties" :{
+                "type" : {
+                  "type" : "string"
+                },
+                "value":{
+                  "type" : "string"
+                }
+              },
+              "additionalProperties": false
+            }  
+          ],
+          "required": ["value", "type"]
+        }  
+      }
+    },
+    "settings" : {
+      "properties": {
+        "version":{
+           "type" : "string",
+           "pattern": "\\d+(?:\\.\\d+){0,3}$"
+        },
+        "parents" : {
+          "oneOf" : [
+            {
+              "type": "array",
+              "items": {
+                "type" : "string",
+                "pattern": ".*\\.es[lmp]$"
+               },
+               "uniqueItems": true
+            },
+            {
+              "type" : "string",
+              "pattern": ".*\\.es[lmp]$"
+            }
+          ]        
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "anyOf": [
+      { "required": ["functions"] },
+      { "required": ["properties"] }
+    ],  
+  "additionalProperties": false
+}           
+            )", nullptr, true, true);
+    }
+    catch (const std::exception& e) {
+        logger::info("Creation of schema failed, here is why: {}", e.what());
+        return;
+    }
+
+    json_validator validator; // create validator
+
+    try {
+        validator.set_root_schema(schema); // insert root-schema
+        logger::info("Schema set");
+
+    }
+    catch (const std::exception& e) {
+        logger::info("Validation of schema failed, here is why: {}", e.what());
+        return;
+    }
+
+    std::string_view target_string = R"(
+            {
+	            "settings" : {
+		            "parents" :"plugin.esp",
+		            "version" : "1"
+	            }, 
+
+	            "functions": {
+		            "functorName" : {
+			            "formula" : " GetActorValue('Health') ",
+			            "parameter" : "Form",
+			            "default" : 0
+		            }
+
+	            },
+	            "properties": {
+		            "propertyName": {
+			            "type" : "float",
+			            "value" : "string that evaluates to something."		
+		            }
+	            }
+            }
+            )";
+
+    json target;
+
+    try {
+        target = json::parse(target_string, nullptr, true, true);
+        logger::info("Validation succeeded");
+    }
+    catch (const std::exception& e) {
+        logger::info("Validation failed, here is why: {}", e.what());
+        return;
+    }
+
+    std::stringstream stream;
+    stream << target;
+    logger::info("test:\n{}", stream.str());
+    try {
+        validator.validate(target); // validate the document - uses the default throwing error-handler
+        logger::info("Validation succeeded");
+    }
+    catch (const std::exception& e) {
+        logger::info("Validation failed, here is why: {}", e.what());
+    }
+}
+
 SKSEPluginLoad(const LoadInterface* skse) {
     //SettingManager::SetSettingPath("");
     
     logger::InitializeLogging();
     //SETTING_PATH;
     
-//#ifdef _DEBUG
+#ifdef _DEBUG
 
     
 
@@ -310,25 +434,311 @@ SKSEPluginLoad(const LoadInterface* skse) {
             input = MessageBox(NULL, !input ? text1 : text2, caption, MB_OKCANCEL);
         } while (!IsDebuggerPresent() && input != IDCANCEL);
     }
-//#endif
+#endif
+
+    TestParsing();
 
     TestFunction();
     const auto* plugin = PluginDeclaration::GetSingleton();
     auto version = plugin->GetVersion();
     log::info("{} {} is loading...", plugin->GetName(), version);
-    Init(skse);
-    logger::info("___A");
+    Init(skse, false);
     Initializer::Execute("main_init");
     Initializer::Execute();
-    logger::info("___B");
     InitializeMessaging();
-    logger::info("___C");
-    LexTesting();
-    //TestParse();
+
+    ProjectManager::instance->InitMain();
     
-    
+
     log::info("{} has finished loading.", plugin->GetName());
 
 
     return true;
 }
+
+
+namespace LEX
+{
+
+    enum struct DispatchType
+    {
+        Static,
+        Method,
+        Event,
+    };
+
+    class PapyrusDispatcher : public RE::BSScript::IFunctionArguments
+    {
+    public:
+        PapyrusDispatcher(RE::TESForm* self, std::span<Variable> args) : _vars{ args }
+        {
+            /*
+            //copy A please
+            if (tar) {
+                RE::BSScript::Variable buffer;
+                if (LoadVariable(*tar, buffer) == true) {
+                    _target = buffer.GetObject();
+                }
+            }
+            //*/
+
+            RE::BSScript::Variable buffer;
+            buffer.Pack(self);
+            _target = buffer.GetObject();
+        }
+
+        PapyrusDispatcher(std::span<Variable> args) : _vars{ args }
+        {
+        }
+
+        ~PapyrusDispatcher() override = default;
+
+
+        bool LoadVariable(Variable& var, RE::BSScript::Variable& arg) const
+        {
+            switch (var.index())
+            {
+            case VariableEnum::Number: {
+                auto& number = var.AsNumber();
+
+
+
+                //TODO: This needs to be repurposed to be able to handle certain things such as unsigned bools and different integer types
+                switch (number.GetOffset())
+                {
+                case Number::Settings::CreateFromType<int>().GetOffset():
+                case Number::Settings::CreateFromType<int64_t>().GetOffset():
+                    arg.SetSInt(number);
+                    break;
+                case Number::Settings::CreateFromType<double>().GetOffset():
+                case Number::Settings::CreateFromType<float>().GetOffset():
+                    arg.SetFloat(number);
+                    break;
+
+                case Number::Settings::CreateFromType<bool>().GetOffset():
+                    arg.SetBool(number);
+                    break;
+                default:
+                    logger::error("something 1");
+                    return false;
+                }
+                
+                break;
+            }
+
+            case VariableEnum::String: {
+                arg.SetString(var.AsString());
+                break;
+            }
+
+            case VariableEnum::Object: {
+                //Needs form, array, alias, active effect
+                Object& object = var.AsObject();
+
+                if (auto policy = object.policy)
+                {
+                    policy->GetCategoryIndex();
+                    switch (Hash(policy->GetCategoryName()))
+                    {
+                        //case "AME"_h:
+                        //case "ALIAS"_h:
+
+                    case "FORM"_h: {
+                        //Later, this should use the something get the offset straight from the object, possibly pulling from a stored value
+                        // if it's considered a null value
+                        //arg.Pack(object.get<RE::TESForm*>());
+                        auto form = object.get<RE::TESForm*>();
+                        
+
+                        RE::BSScript::PackHandle(&arg, form, static_cast<RE::VMTypeID>(form ? form->formType.get() : RE::FormType::None));
+                        break;
+                    }
+
+                    case "ARRAY"_h: {
+
+                        //break;
+                    }
+                    default:
+                        logger::error("something 2");
+                        return false;
+                    }
+                }
+                else {
+                    logger::error("something 3");
+                    return false;
+                }
+
+                break;
+            }
+
+            default:
+                logger::error("something 4");
+                return false;
+
+            }
+
+            return true;
+
+        }
+
+        bool operator()(RE::BSScrapArray<RE::BSScript::Variable>& out) const override
+        {
+            out.reserve(_vars.size());
+
+            for (auto& var : _vars)
+            {
+                RE::BSScript::Variable arg;
+
+                if (LoadVariable(var, arg) == false)
+                    return false;
+                
+                out.push_back(arg);
+            }
+
+            return true;
+        }
+
+        //There will be 2 versions of this function, one with an out, with maybe a few different ways to assign it, like a function or a variable
+        bool CallImpl(std::string_view class_name, std::string_view func_name, DispatchType type, Variable* out)
+        {
+            //RE::BSScript::IStackCallbackFunctor;
+            auto vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+            
+            if (!vm)
+                return false;
+
+            if (vm->IsCompletelyFrozen() == true)
+                return false;
+
+            bool result;
+
+            RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback;
+
+            switch (type)
+            {
+            case DispatchType::Static:
+                result = vm->DispatchStaticCall(class_name, func_name, this, callback);
+                break;
+
+            case DispatchType::Method:
+                result = vm->DispatchMethodCall(_target, func_name, this, callback);
+                break;
+
+            case DispatchType::Event: {
+                auto vm = RE::SkyrimVM::GetSingleton();
+                RE::BSFixedString name = func_name;
+
+
+                vm->SendAndRelayEvent(_target->GetHandle(), &name, this, nullptr);
+                result = true;
+                break;
+            }
+
+            default:
+                return false;
+            }
+
+            return result;
+        }
+
+        
+        bool StaticCall(std::string_view class_name, std::string_view func_name, Variable* out)
+        {
+            return CallImpl(class_name, func_name, DispatchType::Static, out);
+        }
+
+        bool MethodCall(std::string_view func_name, Variable* out)
+        {
+            return CallImpl(""sv, func_name, DispatchType::Method, out);
+        }
+
+        bool SendEvent(std::string_view func_name)
+        {
+            return CallImpl(""sv, func_name, DispatchType::Event, nullptr);
+        }
+
+    private:
+        RE::BSTSmartPointer<RE::BSScript::Object> _target;
+        std::span<Variable> _vars;
+
+       
+    };
+
+
+    //TODO: MOve this elsewhere, these need a proper home in the function registers.
+    bool CallPapyrusFunction(StaticTargetTag, std::string_view class_name, std::string_view func_name, variadic<Variable> args)
+    {
+        PapyrusDispatcher dispatcher{ args };
+
+        return dispatcher.StaticCall(class_name, func_name, nullptr);
+    }
+
+    //This works but fails to work probably with any loaded arguments
+    bool CallPapyrusMethod(RE::TESForm* self, std::string_view func_name, variadic<Variable> args)
+    {
+        PapyrusDispatcher dispatcher{ self, args };
+
+        return dispatcher.MethodCall(func_name, nullptr);
+    }
+
+    bool SendPapyrusEvent(RE::TESForm* self, std::string_view func_name, variadic<Variable> args)
+    {
+        PapyrusDispatcher dispatcher{ self, args };
+
+        return dispatcher.SendEvent(func_name);
+    }
+
+
+    //TODO: Initialize here happens multiple times, and is mainly stored in the non
+
+    inline void __init_func_38(); inline ::Initializer __init_var_38 = { __init_func_38 , "function_register" }; inline void __init_func_38()
+    {
+        RegisterDump dump;
+        logger::debug("Papyrus Interface Functions:");
+        dump = ProcedureHandler::instance->RegisterFunction(CallPapyrusMethod, "Shared::GameObjects::CallPapyrusMethod");
+        dump = ProcedureHandler::instance->RegisterFunction(CallPapyrusFunction, "Shared::GameObjects::CallPapyrusFunction");
+        dump = ProcedureHandler::instance->RegisterFunction(SendPapyrusEvent, "Shared::GameObjects::SendPapyrusEvent");
+    }
+
+
+
+    //The goal is to attempt to make this some other game object. The general idea of game object is I can use it to represent the core scripted objects.
+    //Note though, not important right now due to having no use for it
+    //Scratch that, I need this now. The idea should be to ensure that the type targeted is a game object
+    struct GameObject
+    {
+        //Additionally, I'd like to make something called a proxy object, which is basically just a carrier of a specific kind of object, but layers
+        // modifiers over it.
+
+        GameObject(Object& obj) : object{ obj } {}
+
+        Object object;
+        
+
+
+    };
+
+
+    void TestingCompile()
+    {
+        Script* script = nullptr;
+        SyntaxRecord record;
+        script->AppendContent(record);
+    }
+    
+
+    //Instead of this, remove qaulifiers and test in change_to_t, then update in teh regular functions. I'll make this the intent of all
+    // of these. The one for auto can also be handled differently
+
+
+
+    //For the instance version, deducing this would be a good option to go back through each valid collection.
+
+    template<bool Returns, uint32_t Size>
+    struct runtime_types {};
+
+    //template <bool Returns, uint32_t Size>
+    //struct Formula<R(Args...)> : public FormulaHandler{};
+
+}
+

@@ -10,8 +10,13 @@
       "name": "base",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "$env{COMMONLIBSSE_COMPILER} $env{COMMONLIBSSE_PLATFORM} $env{COMMONLIBSSE_TEXT}"
-      }
+        "CMAKE_CXX_FLAGS": "$env{COMMONLIBSSE_COMPILER} $env{COMMONLIBSSE_PLATFORM} $env{COMMONLIBSSE_TEXT}",
+        "BUILD_TESTS": {
+          "type": "STRING",
+          "value": "OFF"
+        }
+      },
+      
     },
     {
       "name": "vcpkg",
