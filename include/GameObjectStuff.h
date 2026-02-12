@@ -1,7 +1,18 @@
 #pragma once
 
+#include "Lexicon/VariableType.h"
+#include "Lexicon/ObjectInfo.h"
+#include "Lexicon/Object.h"
+
+#include "ClibUtil/string.hpp"
+#include "ClibUtil/editorID.hpp"
+
+#include "MergeMapperPluginAPI.h"
 
 
+
+
+//TODO: Place make a file called LexiconSKSE.hpp that holds all the required headers. This doesn't import easy
 namespace LEX
 {
 	//*
@@ -26,115 +37,6 @@ namespace LEX
 	}
 
 
-
-	template <>
-	struct LEX::ObjectInfo<RE::TESForm*> : public QualifiedObjectInfo<RE::TESForm*>
-	{
-		using Typer = int;
-
-		bool IsPooled(ObjectData&) override
-		{
-			return false;
-		}
-
-
-		virtual void Initialize(ObjectData& data) override
-		{
-			auto form = data.get<RE::TESForm*>();
-			TryAttach(form);
-		}
-
-
-		TypeOffset GetTypeOffset(ObjectData& data) override
-		{
-			auto form = data.get<RE::TESForm*>();
-
-			if (!form){
-				return static_cast<TypeOffset>(RE::FormType::None);
-			}
-
-			if (form->IsPlayerRef() == true) {
-				return GetExtraFormOffset(ExtraForm::kPlayerCharacter);
-			}
-
-
-			return static_cast<TypeOffset>(form->GetFormType());
-		}
-
-		//the form object info needs to edit the transfer functions,
-
-
-		void TryDetach(RE::TESForm*& target)
-		{
-			if (target)
-			{
-				if (auto target_ref = target->AsReference(); target_ref) {
-					auto before = target_ref->BSHandleRefObject::QRefCount();
-					target_ref->DecRefCount();
-					logger::debug("Decrement {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
-				}
-
-				target = nullptr;
-			}
-		}
-
-		void TryAttach(RE::TESForm* target)
-		{
-			if (target)
-			{
-				if (auto target_ref = target->AsReference(); target_ref) {
-					auto before = target_ref->BSHandleRefObject::QRefCount();
-					target_ref->IncRefCount();
-					logger::debug("Increment {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
-
-				}
-			}
-		}
-
-		void Copy(ObjectData& self, const ObjectData& other) override
-		{
-			
-			RE::TESForm*& a_self = self.get<Type>();
-			RE::TESForm*& a_other = other.get<Type>();
-
-			if (a_self != a_other){
-				TryDetach(a_self);	
-				__super::Copy(self, other);
-				TryAttach(a_self);
-
-			}
-		
-		}
-
-
-		void Destroy(ObjectData& self) override
-		{
-			
-			TryDetach(self.get<Type>());
-			
-			__super::Destroy(self);
-		}
-
-		String PrintString(ObjectData& a_self, std::string_view context) override
-		{
-			auto id = GetTypeID(a_self);
-
-			RE::TESForm* self = a_self.get<Type>();
-
-			ITypeInfo* type = IdentityManager::instance->GetTypeByID(id);
-			
-			return std::format("{}::({}<{:08X}>)", type ? type->GetName() : "Form", self ? self->GetFormEditorID() : "", self ? self->GetFormID() : 0);
-		}
-	};
-
-
-	//template <std::derived_from<RE::TESForm> Form>
-	//decltype(auto) ToObject<Form*>(Form*& obj)
-	//{
-	//	return static_cast<RE::TESForm*>(obj);
-	//}
-
-
 	template <std::derived_from<RE::TESForm> Form>
 	struct ObjectTranslator<Form*>
 	{
@@ -144,6 +46,43 @@ namespace LEX
 
 		}
 	};
+
+
+
+	template <>
+	struct LEX::ObjectInfo<RE::TESForm*> : public INTERNAL_OBJECT_INFO(RE::TESForm*)
+	{
+#ifdef LEX_SOURCE
+
+		bool IsPooled(ObjectData&) override;
+
+
+		virtual void Initialize(ObjectData& data) override;
+
+
+		TypeOffset GetTypeOffset(ObjectData& data) override;
+
+		//the form object info needs to edit the transfer functions,
+
+
+		void TryDetach(RE::TESForm*& target);
+
+		void TryAttach(RE::TESForm* target);
+
+		void Copy(ObjectData& self, const ObjectData& other) override;
+
+
+		void Destroy(ObjectData& self) override;
+
+		String PrintString(ObjectData& a_self, std::string_view context) override;
+
+		bool CreateLiteralData(std::string_view literal, uintptr_t & hash, ObjLitCtor & ctor) override;
+
+#endif
+	};
+
+
+
 
 
 	template <std::derived_from<RE::TESForm> Form>
