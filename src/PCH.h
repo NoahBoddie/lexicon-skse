@@ -120,8 +120,6 @@ using namespace REL::literals;
 
 
 
-constexpr std::array<int32_t, 4> version{ 1, 0, 0, 2 };
-
 namespace util {
     using SKSE::stl::report_and_fail;
 }

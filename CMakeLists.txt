@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 include(GNUInstallDirs)
+include (cmake/build_util.cmake)
 
 
 set(headers
@@ -38,7 +39,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         src/ConditionFunction.h
         "src/FunctorManager.h"
         "src/ConditionTLS.h"
-    )
+        "src/Hooks.hpp"
+        src/ScriptFunctions.hpp
+     "src/ScriptFunctions/Register_ObjectReference.h" "src/ScriptFunctions/Register_Door.h" "src/ScriptFunctions/Utility.h")
 
     set(sources
             ${sources}
@@ -92,15 +95,21 @@ set(TEST_BUILD OFF)
 
 set (SETTING_PATH Data/SKSE/Plugins)
 
+
+
 #RGL stuff
-if (NOT LexPath)
-	cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH CMAKE_REPO_DIR)
-	set(LexPath "${CMAKE_REPO_DIR}/lexicon")
-endif()
+#if (NOT LexPath)
+#	cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH CMAKE_REPO_DIR)
+#	set(LexPath "${CMAKE_REPO_DIR}/lexicon")
+#endif()
 
-add_subdirectory(${LexPath} Lexicon)
-add_dependencies(${PROJECT_NAME} Lexicon::Lexicon)	
+#add_subdirectory(${LexPath} Lexicon)
+#add_dependencies(${PROJECT_NAME} Lexicon::Lexicon)	
 
+add_local_dependency(Lexicon lexicon)
+add_local_dependency(Lexicon lexicon)
+add_local_dependency(RoguesGalleryClib rogues-gallery-clib)
+message(FINISH XXXX)
 	
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 target_link_libraries(
@@ -117,6 +126,9 @@ target_link_libraries(
         Lexicon::Lexicon
 )
 endif()
+
+
+message(FINISH XXXX)
 
 
 	target_compile_options(

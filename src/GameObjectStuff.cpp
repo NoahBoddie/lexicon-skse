@@ -1,7 +1,7 @@
 #include "GameObjectStuff.h"
 
 #include "MergeMapperPluginAPI.h"
-
+#include "ScriptFunctions.hpp"
 
 namespace LEX
 {
@@ -28,7 +28,7 @@ namespace LEX
 		}
 
 		if (form->IsPlayerRef() == true) {
-			return GetExtraFormOffset(ExtraForm::kPlayerCharacter);
+			return GetExtraFormOffset(ExtraForm::PlayerCharacter);
 		}
 
 
@@ -42,7 +42,7 @@ namespace LEX
 	{
 		if (target)
 		{
-			if (auto target_ref = target->AsReference(); target_ref) {
+			if (auto target_ref = target->As<RE::TESObjectREFR>(); target_ref) {
 				auto before = target_ref->BSHandleRefObject::QRefCount();
 				target_ref->DecRefCount();
 				report::message::trace("Decrement {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
@@ -52,11 +52,15 @@ namespace LEX
 		}
 	}
 
+
+	RE::NiPointer<RE::TESObjectREFR> pointer = nullptr;
+
 	void LEX::ObjectInfo<RE::TESForm*>::TryAttach(RE::TESForm* target)
 	{
 		if (target)
 		{
-			if (auto target_ref = target->AsReference(); target_ref) {
+			if (auto target_ref = target->As<RE::TESObjectREFR>(); target_ref) {
+				pointer.reset(target_ref);
 				auto before = target_ref->BSHandleRefObject::QRefCount();
 				target_ref->IncRefCount();
 				report::message::trace("Increment {} ref count: {} -> {}", target_ref->GetDisplayFullName(), before, target_ref->BSHandleRefObject::QRefCount());
@@ -89,7 +93,7 @@ namespace LEX
 		__super::Destroy(self);
 	}
 
-	String LEX::ObjectInfo<RE::TESForm*>::PrintString(ObjectData& a_self, std::string_view context)
+	String LEX::ObjectInfo<RE::TESForm*>::PrintString(ObjectData& a_self, std::string_view)
 	{
 		auto id = GetTypeID(a_self);
 
@@ -143,13 +147,89 @@ namespace LEX
 
 		for (auto& ch : str)
 		{
-			ch = std::tolower(ch);
+			ch = (char)std::tolower(ch);
 		}
 
 		hash = std::hash<std::string>{}(str);
 		ctor = func;
 		return true;
 	}
+
+	TypeOffset LEX::ObjectInfo<RE::TESForm*>::GetOffsetFromArgs(const std::string_view& category, const std::span<std::string_view>& args)
+	{
+		switch (Hash(category))
+		{
+		case "FORM"_h:
+			if constexpr (1)
+			{
+				if (args.size() != 1)
+					report::compile::critical("FORM requires 1 entry");
+
+				auto& arg = args[0];
+
+				if (arg != magic_enum::enum_name(RE::FormType::Max) && arg != magic_enum::enum_name(ExtraForm::kTotal))
+				{
+					//I can make a macro for most of this
+					{
+						auto value = magic_enum::enum_cast<RE::FormType>(arg);
+
+						if (value.has_value() == true) {
+							return static_cast<TypeOffset>(value.value());
+						}
+					}
+
+					{
+						auto value = magic_enum::enum_cast<ExtraForm>(arg);
+
+						if (value.has_value() == true) {
+							return GetExtraFormOffset(value.value());
+						}
+					}
+				}
+
+				report::compile::error("Unknown name '{}' used", arg);
+
+			}
+			break;
+
+		}
+		return TypeID::invalid;
+	}
+
+	INITIALIZE("main_init")
+	{
+		SharedClient::instance->AddCompileOptions("Skyrim");
+
+		auto& module = REL::Module::get();
+
+		switch (module.GetRuntime())
+		{
+		case REL::Module::Runtime::SE:
+			SharedClient::instance->AddCompileOptions("ESV_SE");
+			break;
+
+		case REL::Module::Runtime::AE:
+			SharedClient::instance->AddCompileOptions("ESV_AE");
+			break;
+
+		case REL::Module::Runtime::VR:
+			SharedClient::instance->AddCompileOptions("ESV_VR");
+			break;
+
+		case REL::Module::Runtime::Unknown:
+			SharedClient::instance->AddCompileOptions("ESV_NA");
+			break;
+		}
+
+
+
+
+
+	}
+
+
+
+
 #endif
 
 }

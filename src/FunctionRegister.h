@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include "ScriptFunctions.hpp"
 #include "Console.h"
 
 namespace LEX
@@ -300,29 +302,6 @@ namespace LEX
 	};
 
 
-	int GetItemCount(RE::TESObjectREFR* a_this, RE::TESForm* form)
-	{
-		
-
-		//Notice, I wish to improve this shit plz.
-		
-
-		if (!a_this) {
-			//Report
-			return 0;
-		}
-		//I will make this support formlists later.
-
-		RE::TESBoundObject* object = form->As<RE::TESBoundObject>();
-
-		if (!object) {
-			return 0;
-		}
-		auto inventory_counts = a_this->GetInventoryCounts();
-
-		return inventory_counts[object];
-	};
-
 
 
 	float GetValue(RE::TESGlobal* a_this)
@@ -344,7 +323,7 @@ namespace LEX
 		}
 
 
-		float count = 0;
+		int count = 0;
 
 
 		RE::BSSimpleList<RE::ActiveEffect*>* effect_list = a_this->AsMagicTarget()->GetActiveEffectList();
@@ -698,7 +677,7 @@ namespace LEX
 		dump = ProcedureHandler::instance->RegisterFunction(IsInFaction, "Shared::GameObjects::IsInFaction");							//03
 		dump = ProcedureHandler::instance->RegisterFunction(IsInFactionRank, "Shared::GameObjects::IsInFactionRank");					//04
 		dump = ProcedureHandler::instance->RegisterFunction(GetPerkCount, "Shared::GameObjects::GetPerkCount");							//05
-		dump = ProcedureHandler::instance->RegisterFunction(GetItemCount, "Shared::GameObjects::GetItemCount");							//06
+		
 		dump = ProcedureHandler::instance->RegisterFunction(GetValue, "Shared::GameObjects::GetValue");									//07
 		dump = ProcedureHandler::instance->RegisterFunction(GetMagicEffectCount, "Shared::GameObjects::GetMagicEffectCount");			//08
 		dump = ProcedureHandler::instance->RegisterFunction(IsRace, "Shared::GameObjects::IsRace");										//09

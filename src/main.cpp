@@ -1,13 +1,17 @@
+INITIALIZE_NOW()
+{
+    logger::InitializeLogging();
+}
+
 #include "GameObjectStuff.h"
 #include "Lexicon/Engine/TempConstruct.h"
 #include "Lexicon/Interfaces/InterfaceManager.h"
 
-#include "FunctionRegister.h"
+#
 #include "Lexicon/Engine/SettingManager.h"
 
 #include <stacktrace>
 
-#include "ConditionFunction.h"
 
 #include <iostream>
 #include <stacktrace>
@@ -15,6 +19,10 @@
 
 #include "nlohmann/json-schema.hpp"
 #include "FunctorManager.h"
+
+#include "FunctionRegister.h"
+#include "ScriptFunctions.hpp"
+#include "ConditionFunction.h"
 
 int nested_func(int c)
 {
@@ -97,7 +105,11 @@ DEFAULT_LOGGER()
     log->set_level(level);
     log->flush_on(level);
 
+    log->log({}, {});;
+
     spdlog::set_default_logger(std::move(log));
+
+
     //spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] [%t] [%s:%#] %v");
     spdlog::set_pattern("%s(%#): [%^%l%$] %v"s);
 
@@ -135,11 +147,11 @@ void HandleMessage(MessagingInterface::Message* message)
 
     case MessagingInterface::kPostPostLoad: // Called after all kPostLoad message handlers have run.
 
-        Component::Link(LinkFlag::Loaded);
+        Component::LinkComponents(LinkFlag::Loaded);
 
-        Component::Link(LinkFlag::Declaration);
+        Component::LinkComponents(LinkFlag::Declaration);
 
-        Component::Link(LinkFlag::Definition);
+        Component::LinkComponents(LinkFlag::Definition);
         Initializer::Execute("function_register");
         break;
 
@@ -148,7 +160,7 @@ void HandleMessage(MessagingInterface::Message* message)
         break;
 
     case MessagingInterface::kDataLoaded:
-        Component::Link(LinkFlag::External);
+        Component::LinkComponents(LinkFlag::External);
         break;
 
     }
@@ -180,24 +192,17 @@ void InitializeMessaging() {
 
 
 
-
+//Proxy is a class that owns an object 
 
 
 void LexTesting()
 {
     ProjectManager::instance->InitMain();
-    Object test = (RE::TESForm*)RE::PlayerCharacter::GetSingleton();
-
+    
 }
 
 
 
-INITIALIZE()
-{
-    //Put this sort of thing in a unique ptr please.
-    DefaultClient::SetInstance(new DefaultClientEx);
-
-}
 
 INITIALIZE()
 {
@@ -219,7 +224,6 @@ INITIALIZE()
 
 void TestParsing()
 {
-
     using nlohmann::json;
     using nlohmann::json_schema::json_validator;
 
@@ -416,6 +420,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     //SettingManager::SetSettingPath("");
     
     logger::InitializeLogging();
+    logger::info("laoding");
     //SETTING_PATH;
     
 #ifdef _DEBUG
@@ -443,6 +448,20 @@ SKSEPluginLoad(const LoadInterface* skse) {
     auto version = plugin->GetVersion();
     log::info("{} {} is loading...", plugin->GetName(), version);
     Init(skse, false);
+
+    //TODO: Move this, the version check is more relevant to lexicon in general than this one specfically
+    LEX::InterfaceManager::AddVersionCheck([](uintptr_t server, uintptr_t client) -> LEX::Update
+        {
+            constexpr auto not_allowed = 1ULL << 0 | 0ULL << 8 | 0ULL << 16 | 0ULL << 24;
+
+            if (client <= not_allowed) {
+                return LEX::Update::Library;
+            }
+
+            return LEX::Update::Match;
+        });
+
+
     Initializer::Execute("main_init");
     Initializer::Execute();
     InitializeMessaging();

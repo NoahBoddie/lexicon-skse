@@ -1,11 +1,11 @@
 #pragma once
 
 #include "xbyak/xbyak.h"
-#include "Console.h"
+
 #include "FunctorManager.h"
 
 #include "ConditionTLS.h"
-
+#include "Console.h"
 namespace RE
 {
 	using FunctionID = FUNCTION_DATA::FunctionID;
@@ -297,30 +297,6 @@ namespace LEX
 				return;
 			}
 			
-			if constexpr (0)
-			if (static bool once = true; std::exchange(once, false)) {
-				RE::TESDataHandler* handler = RE::TESDataHandler::GetSingleton();
-
-				if (!handler) {
-					logger::warn("not yet");
-				}
-
-				std::span<RE::TESFile*> heavies{ handler->GetLoadedLightMods(), handler->GetLoadedLightModCount() };
-				std::span<RE::TESFile*> lights{ handler->GetLoadedMods(), handler->GetLoadedModCount() };
-
-				logger::info("Heavies:");
-				for (auto file : heavies)
-				{
-					logger::info("	{}", file->GetFilename());
-				}
-				logger::info("Lights:");
-				for (auto file : lights)
-				{
-					logger::info("	{}", file->GetFilename());
-				}
-
-			}
-
 
 			RE::BSFixedString*& arg = reinterpret_cast<RE::BSFixedString*&>(func_data.params[0]);
 			//arg.clear
@@ -470,10 +446,63 @@ namespace LEX
 
 			switch (*func_id)
 			{
-			//case RE::FunctionID::kGetGraphVariableInt:
-			//case RE::FunctionID::kGetGraphVariableFloat:
-			//	if (func_data.params[0])
-			//		break;
+			case RE::FunctionID::kGetGraphVariableInt:
+			case RE::FunctionID::kGetGraphVariableFloat:
+				if constexpr (1)
+				{
+					if (!func_data.params[0])
+						break;
+
+					RE::BSFixedString*& arg = reinterpret_cast<RE::BSFixedString*&>(func_data.params[0]);
+					//arg.clear
+					if (auto str = arg->c_str(); !strnicmp(str, init_chars.data(), init_size) && arg->size() > init_size && std::isalnum(str[init_size]) == false)
+					{
+						//for now, I'm skipping everything until I get to a : character.
+
+						size_t length = arg->size() - init_size;
+
+						auto begin = str + init_size;
+
+						//This needs to be a unique character, this cannot suffice. 
+						// some unique string of characters that's immistakable, or use the parser. That's also viable.
+						while (*begin != '\0' && strnicmp(begin, ">>", 2) != 0) length--, begin++;
+
+
+						if (*begin != '\0')
+						{
+							auto string = arg;
+
+							func_data.function = RE::FunctionID::kGetNoRumors;
+							func_data.params[0] = nullptr;
+							reinterpret_cast<size_t&>(func_data.params[1]) = 0xDEADBEEF;
+
+
+							length--, begin++;
+							length--, begin++;
+
+
+
+							std::string_view form{ begin, length };
+
+							report::compile::info("compiling '{}'", form);
+
+							ConditionFormula formula = ConditionFormula::Create("subject", "target", form);
+
+							if (formula) {
+								reinterpret_cast<ConditionFormula&>(arg) = std::move(formula);
+								report::compile::info("Successfully compiled '{}'", form);
+							}
+							else {
+								report::compile::failure("Condition [{}] failed to compile.", form);
+							}
+
+							string->~BSFixedString();
+
+						}
+					}
+
+				}
+				break;
 
 			case RE::FunctionID::kHasKeyword: {
 				RE::BGSKeyword* keyword = reinterpret_cast<RE::BGSKeyword*>(func_data.params[0]);
@@ -500,8 +529,12 @@ namespace LEX
 
 		static void Install()
 		{
-			//SE: 4454C0, AE: 460B30, VR: ???
-			auto hook = REL::RelocationID(29090, 29924).address();
+			//This may require more.
+
+
+			//~Old version SE: 4454C0, AE: 460B30, VR: ???
+			//SE: 444920, AE: 45FFC0, VR: ???
+			auto hook = REL::RelocationID(29078, 29895).address();
 			uintptr_t offset = 0x5;
 
 
@@ -652,6 +685,7 @@ namespace LEX
 	};
 
 
+
 	void Install()
 	{
 		SKSE::AllocTrampoline(14 * 7);
@@ -660,8 +694,8 @@ namespace LEX
 		// then load it into a thread local system or something like that, allowing it to return a value through a reference.
 		SaveConsoleResultHook::Install();
 		SaveConditionParamsHook::Install();
-		DeleteConditionHook::Install();
-		LoadConditionHook::Install();
+		//DeleteConditionHook::Install();
+		//LoadConditionHook::Install();
 		LoadConditionFinalHook::Install();
 		ResolveConditionHook::Install();//Exists
 		ConditionHook::Install();

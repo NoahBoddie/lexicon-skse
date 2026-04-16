@@ -11,11 +11,9 @@
             "description": "Build the SKSE plugin.",
           "dependencies": [
             "commonlibsse-ng",
-            "tomlplusplus",
             "directxmath",
             "directxtk",
             "openvr",
-            "autotoml",
             "simpleini",
             "fmt",
             "spdlog",
@@ -24,7 +22,9 @@
             "xbyak",
             "clib-util",
             "nlohmann-json",
-            "json-schema-validator"
+            "json-schema-validator",
+            "zydis",
+            "rogues-gallery-clib"
           ]
         }
     },

@@ -216,6 +216,7 @@ namespace LEX
 	{
 		FunctorFormula formula{};
 
+		//I may make this a multi parameter set up by making it a null terminated unique_ptr string of type infos.
 		TypeInfo* parameter = nullptr;
 
 		std::optional<float> defaultValue = std::nullopt;
@@ -248,9 +249,11 @@ namespace LEX
 
 				auto arg_type = arg.GetTypeInfo();
 				//This needs to use convert eventually.
-				if (arg_type == parameter) {
+				if (arg_type == parameter || parameter->Convert(arg, arg) == true) {
 					return formula(refr)->Call(arg, GetDefault());
 				}
+				
+
 			}
 			return std::numeric_limits<double>::quiet_NaN();
 		}
@@ -350,7 +353,7 @@ namespace LEX
 
 			std::string text = std::format("GetProperty('{}_{}') as {}", file_name, node.GetView(), property->type);
 
-			if (Parser__::CreateSyntax<LineParser>(node, text) == false) {
+			if (Parser::CreateSyntax<LineParser>(node, text) == false) {
 				return false;
 			}
 
@@ -363,7 +366,7 @@ namespace LEX
 
 		bool TranslateAST(const std::string_view& file_name, SyntaxRecord& ast)
 		{
-			for (auto& node : ast.children())
+			for (SyntaxRecord& node : ast.children())
 			{
 				bool success;
 
@@ -535,7 +538,7 @@ namespace LEX
 							parameter = "voidable";
 						}
 
-						functor.parameter = ProjectManager::instance->GetTypeFromPath(parameter)->FetchTypePolicy(nullptr);
+						functor.parameter = NULL_OP(NULL_Q(ProjectManager::instance->GetTypeFromPath(parameter))->GetTypeInfo(nullptr));
 
 						if (!functor.parameter) {
 							logger::error("invalid type for parameter: {}", parameter);
@@ -546,7 +549,7 @@ namespace LEX
 								functor.defaultValue = static_cast<float>(number);
 							});
 
-						if (Parser__::CreateSyntax<LineParser>(to_process, formula) == false) {
+						if (Parser::CreateSyntax<LineParser>(to_process, formula) == false) {
 							logger::error("Functor formula failed to be parsed: {}", formula);
 						}
 
