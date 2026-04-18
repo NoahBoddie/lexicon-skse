@@ -6,8 +6,8 @@ namespace LEX
 	
 	inline Voidable previousResult{};
 
-	double noCall = std::nan("1BADCA11");
-	double noReturn = std::nan("1BADDEED");
+	inline double noCall = std::nan("1BADCA11");
+	inline double noReturn = std::nan("1BADDEED");
 
 	
 
