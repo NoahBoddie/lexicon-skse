@@ -22,8 +22,8 @@ INITIALIZE_NOW()
 
 #include "FunctionRegister.h"
 #include "ScriptFunctions.hpp"
-#include "ConditionFunction.h"
-
+//#include "ConditionFunction.h"
+#include "Hooks.hpp"
 int nested_func(int c)
 {
     std::cout << std::stacktrace::current() << '\n';
@@ -160,7 +160,6 @@ void HandleMessage(MessagingInterface::Message* message)
         break;
 
     case MessagingInterface::kInputLoaded:
-        logger::info("test if true: {}", !!RE::TESDataHandler::GetSingleton());
         Install();
         break;
 

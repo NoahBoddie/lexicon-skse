@@ -1,15 +1,12 @@
 #pragma once
 
+#ifdef CONDITIONFUNCTION_H
 #include "xbyak/xbyak.h"
 
 #include "FunctorManager.h"
 
 #include "ConditionTLS.h"
 #include "Console.h"
-namespace RE
-{
-	using FunctionID = FUNCTION_DATA::FunctionID;
-}
 
 namespace LEX
 {
@@ -43,11 +40,6 @@ namespace LEX
 
 		return 0;
 	}
-
-
-
-	using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(RE::TESObjectREFR*, RE::TESObjectREFR*)>;
-	using ConsoleFormula = Formula<Voidable(RE::TESObjectREFR::*)(Voidable)>;
 
 
 	struct ConditionHook
@@ -244,8 +236,8 @@ namespace LEX
 	};
 
 
-
-	struct DeleteConditionHook
+	
+	struct [[deprecated("Not handled here anymore")]] DeleteConditionHook
 	{
 		static void Install()
 		{
@@ -274,7 +266,7 @@ namespace LEX
 	};
 
 
-	struct LoadConditionHook
+	struct [[deprecated("Not handled here anymore")]] LoadConditionHook
 	{
 		static void Install()
 		{
@@ -741,3 +733,5 @@ namespace LEX
 	}
 
 }
+
+#endif

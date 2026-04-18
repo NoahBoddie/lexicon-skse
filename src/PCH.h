@@ -128,5 +128,34 @@ namespace util {
 
 //#define SETTING_PATH Data/SKSE/Plugins
 
+namespace LEX
+{
+	inline int CallOrJump(uintptr_t addr)
+	{
+		//0x15 0xE8//These are calls, represented by negative numbers
+		//0x25 0xE9//These are jumps, represented by positive numbers.
+		//And zero represent it being neither.
+
+		if (addr)
+		{
+			auto first_byte = reinterpret_cast<uint8_t*>(addr);
+
+			switch (*first_byte)
+			{
+			case 0x15:
+			case 0xE8:
+				return -1;
+
+			case 0x25:
+			case 0xE9:
+				return 1;
+
+			}
+		}
+
+		return 0;
+	}
+}
+
 #include "Lexicon.h"
 #include "GameObjectStuff.h"

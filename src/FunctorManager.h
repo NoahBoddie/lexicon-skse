@@ -7,11 +7,17 @@
 
 #include "CachedScript.h"
 
-namespace LEX
+namespace RE
 {
-
+	using FunctionID = FUNCTION_DATA::FunctionID;
 }
 
+namespace LEX
+{
+	constexpr std::string_view init_chars = "RUN";
+
+	constexpr auto init_size = init_chars.size();
+}
 
 using nlohmann::json;
 using nlohmann::json_schema::json_validator;
@@ -83,8 +89,21 @@ namespace LEX
 	}
 
 
-	using FunctorFormula = Formula<double(RE::TESObjectREFR::*)(runtime_type)>;
 	using PropertyFormula = Formula<runtime_type()>;
+
+
+	using ConsoleFormula = Formula<Voidable(RE::TESObjectREFR::*)(Voidable)>;
+	
+	//TODO: Hunt these down and delete them.
+	using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(RE::TESObjectREFR*, RE::TESObjectREFR*)>;
+	using FunctorFormula = Formula<double(RE::TESObjectREFR::*)(runtime_type)>;
+
+	using NewConditionFormula = Formula<double(RE::TESObjectREFR::*)(
+		RE::TESObjectREFR* target, 
+		RE::TESObjectREFR* subject, 
+		runtime_type arg, 
+		float solution)>;
+
 
 	void TestingFact()
 	{
