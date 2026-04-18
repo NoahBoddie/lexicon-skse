@@ -9,6 +9,15 @@ namespace LEX
 		RE::ConditionCheckParams* params = nullptr;
 		std::string_view filename;
 		Variable argument{};
+		double prevSolution = NAN;
+		bool preserveSolution = true;
+		//double prevReturn = NAN;
+
+		bool ShouldStoreSolution()
+		{
+			return this ? std::exchange(preserveSolution, true) : false;
+		}
+
 
 		RE::ConditionCheckParams* GetParams()
 		{

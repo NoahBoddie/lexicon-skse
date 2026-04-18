@@ -152,15 +152,20 @@ void HandleMessage(MessagingInterface::Message* message)
         Component::LinkComponents(LinkFlag::Declaration);
 
         Component::LinkComponents(LinkFlag::Definition);
+
+        //Component::LinkComponents(LinkFlag::External);
+
+
         Initializer::Execute("function_register");
         break;
 
     case MessagingInterface::kInputLoaded:
+        logger::info("test if true: {}", !!RE::TESDataHandler::GetSingleton());
         Install();
         break;
 
     case MessagingInterface::kDataLoaded:
-        Component::LinkComponents(LinkFlag::External);
+        Component::LinkComponents(LinkFlag::Object);
         break;
 
     }
@@ -452,7 +457,14 @@ SKSEPluginLoad(const LoadInterface* skse) {
     //TODO: Move this, the version check is more relevant to lexicon in general than this one specfically
     LEX::InterfaceManager::AddVersionCheck([](uintptr_t server, uintptr_t client) -> LEX::Update
         {
-            constexpr auto not_allowed = 1ULL << 0 | 0ULL << 8 | 0ULL << 16 | 0ULL << 24;
+//Move and preserve
+#define SEM_VER(mc_major, mc_minor, mc_change, mc_fixes) \
+            mc_major##ULL   <<  0 | \
+            mc_minor##ULL   <<  8 | \
+            mc_change##ULL  << 16 | \
+            mc_fixes##ULL   << 24
+
+            constexpr auto not_allowed = SEM_VER(1, 0, 0, 0);
 
             if (client <= not_allowed) {
                 return LEX::Update::Library;

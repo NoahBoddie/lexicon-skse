@@ -5,6 +5,8 @@
 #include "nlohmann/json-schema.hpp"
 #include "ConditionTLS.h"
 
+#include "CachedScript.h"
+
 namespace LEX
 {
 
@@ -17,7 +19,7 @@ using nlohmann::json_schema::json_validator;
 
 namespace LEX
 {
-
+	constexpr std::string_view scriptedConfig = "LEX_";
 
 	inline void VisitJsonArray(json& value, std::function<void(json&)> func)
 	{
@@ -113,9 +115,19 @@ namespace LEX
 
 		bool SetType(const std::string_view& str)
 		{
-			type = str;
+			bool result;
+			
 
-			return true;
+			if (str.ends_with("()") == true) {
+				type = str.substr(0, str.size() - 2);
+				result = true;
+			}
+			else {
+				type = str;
+				result = false;
+			}
+
+			return result;
 		}
 
 		void SetValue(Variable&& var)
@@ -125,9 +137,13 @@ namespace LEX
 		}
 
 
-		bool SetFormula(const std::string_view& str)
+		bool SetFormula(const std::string_view& str, IScript* script)
 		{
-			auto formula = PropertyFormula::Create(type, str);
+			if (!script) {
+				script = cached_script::condition();
+			}
+
+			auto formula = PropertyFormula::Create(type, str, script);
 
 			if (formula) {
 				_value = std::move(formula);
@@ -222,7 +238,7 @@ namespace LEX
 		std::optional<float> defaultValue = std::nullopt;
 		uint32_t ownerID = -1;
 		bool errorDisplayed = false;//Done so we can skip over stuff like the thing not loading.
-
+		bool isSolvable = true;
 		double GetDefault()
 		{
 			constexpr double nan = std::numeric_limits<double>::quiet_NaN();
@@ -249,7 +265,7 @@ namespace LEX
 
 				auto arg_type = arg.GetTypeInfo();
 				//This needs to use convert eventually.
-				if (arg_type == parameter || parameter->Convert(arg, arg) == true) {
+				if (!parameter || arg_type == parameter || parameter->Convert(arg, arg) == true) {
 					return formula(refr)->Call(arg, GetDefault());
 				}
 				
@@ -431,7 +447,7 @@ namespace LEX
 		}
 
 		//I will probably include a code instead
-		static void LoadProperties(uint32_t fileID, std::string_view filename, json& settings)
+		static void LoadProperties(uint32_t fileID, std::string_view filename, json& settings, IScript* script)
 		{
 			IfFind(settings, "properties", [&](json& props)
 				{
@@ -448,13 +464,17 @@ namespace LEX
 
 						Property property{};
 
-						property.SetType(item["type"]);
+						bool is_formula = property.SetType(item["type"]);
 						
 						property.ownerID = fileID;
 
 						auto& value = item["value"];
 						
 						bool commit = true;
+
+						if (value.type() != json::value_t::string) {
+							logger::warn("Expected property {}::{} to be a string", filename, name);
+						}
 
 						switch (value.type())
 						{
@@ -478,8 +498,8 @@ namespace LEX
 								{
 									std::string_view str = static_cast<std::string_view>(value);
 
-									if (property.type == "string" && str.starts_with(">>")) {
-										commit = property.SetFormula(str.substr(2));
+									if (is_formula) {
+										commit = property.SetFormula(str, script);
 									}
 									else {
 										property.SetValue(str);
@@ -502,7 +522,7 @@ namespace LEX
 				});
 		}
 
-		static void LoadFunctors(uint32_t fileID, std::string_view filename, json& settings)
+		static void LoadFunctors(uint32_t fileID, std::string_view filename, json& settings, IScript* script)
 		{
 
 			IfFind(settings, "functions", [&](json& props)
@@ -528,22 +548,40 @@ namespace LEX
 						std::string_view parameter;
 						//TODO: confirm this type exists.
 
-
+						bool has_param;
 
 						if (IfFind(item, "parameter", [&](json& type)
 							{
+								has_param = true;
 								parameter = type;
 							}) == false)
 						{
+							has_param = false;
 							parameter = "voidable";
 						}
 
-						functor.parameter = NULL_OP(NULL_Q(ProjectManager::instance->GetTypeFromPath(parameter))->GetTypeInfo(nullptr));
+						functor.isSolvable = FindOr(item, "isSolvable", true);
 
-						if (!functor.parameter) {
-							logger::error("invalid type for parameter: {}", parameter);
+						if (!script) {
+							script = cached_script::condition();
 						}
 
+						if (has_param)
+						{
+							ITypeInfo* type = script->GetTypeFromPath(parameter);
+
+							if (!type) {
+								logger::error("Type for parameter cannot be found: {}", parameter);
+							}
+
+
+							functor.parameter = type->GetTypeInfo(nullptr);
+
+							if (!functor.parameter) {
+								logger::error("Type for parameter is not complete: {}", parameter);
+							}
+						}
+						
 						IfFind(item, "default", [&](json& number)
 							{
 								functor.defaultValue = static_cast<float>(number);
@@ -555,7 +593,7 @@ namespace LEX
 
 						//Handle process here
 
-						auto func_form = FunctorFormula::Create({ parameter, "arg"}, name, to_process);
+						auto func_form = FunctorFormula::Create({ parameter, "arg"}, name, to_process, script);
 
 						if (!func_form) {
 							logger::error("Functor formula failed to compile: {}", formula);
@@ -571,34 +609,55 @@ namespace LEX
 
 		inline static uint32_t nextFileCode = 1;
 
+		bool tmpLoadFile(std::string_view filename, std::string_view text, IScript* script) try
+		{
+			json contents = json::parse(text, nullptr, true, true);
+
+			logger::debug("{}:\n{}", filename, contents.dump(2));
+
+			//Toss the json bit.
+			filename = filename.substr(0, filename.size() - 5);
+
+			LoadSettings(filename, contents);
+
+			uint32_t filecode = nextFileCode++;
+
+			LoadProperties(filecode, filename, contents, script);
+			LoadFunctors(filecode, filename, contents, script);
+			return true;
+		} catch (std::exception& error)
+		{
+			logger::error("Error for {}: {}", filename, error.what());
+			return false;
+		}
+		
+
+
 		void tmpLoadFiles()
 		{
 			//This should use the selected lexicon folder
 			std::vector<std::pair<std::string, std::string>> files =  SearchFiles("Data/SKSE/Lexicon/Resources/LexiconSKSE", ".json");
-
+			auto script = cached_script::condition();
 
 			for (auto& [folder, filename] : files)
 			{
+				if (filename.starts_with(scriptedConfig) == true) {
+					logger::warn("Config '{}' cannot be loaded via file ('{}' suffix is reserved for script formatting)", 
+						filename, scriptedConfig);
+				}
+
 				json contents;
 
 				try
 				{
 					std::string path = std::format("{}/{}", folder, filename);
 					logger::info("loading: {}", path);
-					std::ifstream f{ path };
-					contents = json::parse(f, nullptr, true, true);
+					std::ifstream file_input{ path };
+					std::stringstream stream;
+					stream << file_input.rdbuf();
+					std::string text = stream.str();
 
-					logger::debug("{}", contents.dump(2));
-
-					//Toss the json bit.
-					filename = filename.substr(0, filename.size() - 5);
-
-					LoadSettings(filename, contents);
-
-					uint32_t filecode = nextFileCode++;
-
-					LoadProperties(filecode, filename, contents);
-					LoadFunctors(filecode, filename, contents);
+					tmpLoadFile(filename, text, script);
 				}
 				catch (std::exception& error)
 				{
@@ -617,24 +676,16 @@ namespace LEX
 			if (_init)
 				return;
 		
-			if constexpr (0)
-			{
-				propertyNames["Health"] = Property("string", Variable{ "Health" });
-
-
-				Functor functor{};
-
-				functor.formula = FunctorFormula::Create({ "string", "av" }, "(this as Actor).GetActorValue(av, 15)");
-				functor.defaultValue = -1.f;
-				functor.parameter = common_type::string();
-				functors["GetActorValue"] = std::move(functor);
-			}
-			else
-			{
-				tmpLoadFiles();
-			}
+		
+			tmpLoadFiles();
+			//I'll be frank, I fucking hate this as a concept. I think it's bad as shit.
+			// With that being said, this seems to be the safest place to do this for now.
+			// But ideally, I'd like to execute this around when the game finishes it's static initialization
 
 			_init = true;
+
+			Component::LinkComponents(LinkFlag::External);
+
 		}
 
 		static FunctorManager* GetSingleton()
@@ -647,20 +698,23 @@ namespace LEX
 
 		static constexpr std::string_view k_loadProperty = "PROPERTY__";
 		static constexpr std::string_view k_executeFunctor = "FUNCTOR__";
+		static constexpr std::string_view k_returnFunction = "RETURN__";
 		static constexpr std::string_view k_loadFile = "LOADFILE__";
 
 		//LOADPROP, CALLFUNC, LOADFILE are the names I'll be using.
 
 		static constexpr size_t k_loadPropCode = 0xDEAD4EAD;
 		static constexpr size_t k_exFuncCode = 0x600DFEED;
+		//static constexpr size_t k_retFuncCode = 0x1BADD00D;
 		static constexpr size_t k_loadFileCode = 0xBAD4EED;
 
 
-		static bool Apply(RE::BGSKeyword* keyword, void*& arg1, void*& arg2)
+		static bool Apply(RE::BGSKeyword* keyword, void*& arg1, void*& arg2, RE::CONDITION_ITEM_DATA& data)
 		{
 			if (!keyword)
 				return false;
 
+			//I'd like to turn these into functions to make this easier on me.
 			auto key_size = keyword->formEditorID.size();
 
 			if (auto size = k_loadProperty.size(); key_size > size &&  strnicmp(k_loadProperty.data(), keyword->GetFormEditorID(), size) == 0) {
@@ -679,12 +733,30 @@ namespace LEX
 				std::string func_name = keyword->GetFormEditorID() + size;
 
 				currentParams->AddFilename(func_name);
-
+				currentParams->SetFilename({});
 
 				Functor* functor = GetSingleton()->FindFunctor(func_name);
 				logger::info("Search for functor {}: {}", func_name, !!functor);
 				arg1 = functor;
 				arg2 = reinterpret_cast<void*>(k_exFuncCode);
+				return true;
+			}
+			else if (auto size = k_returnFunction.size(); key_size > size && strnicmp(k_returnFunction.data(), keyword->GetFormEditorID(), size) == 0) {
+				
+				std::string func_name = keyword->GetFormEditorID() + size;
+
+				currentParams->AddFilename(func_name);
+				currentParams->SetFilename({});
+
+				Functor* functor = GetSingleton()->FindFunctor(func_name);
+				logger::info("Search for functor {}: {}", func_name, !!functor);
+				arg1 = functor;
+				arg2 = reinterpret_cast<void*>(k_exFuncCode);
+				data.flags.global = false;
+				data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo;
+				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+				//data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo;
+				//data.comparisonValue.f = 1000000;
 				return true;
 			}
 			else if (auto size = k_loadFile.size(); key_size > size && strnicmp(k_loadFile.data(), keyword->GetFormEditorID(), size) == 0) {
@@ -712,13 +784,27 @@ namespace LEX
 
 		inline static bool _init = false;
 
-
-		
-
 	};
 
-	std::vector<std::pair<std::string, std::string>> stuff;
+	INITIALIZE("main_init")
+	{
+		SharedClient::instance->AddCompileOptions("Skyrim");
+		//Want to add a format that loads a script like above. Anything loaded through through script will have
+		// a header, and that header will be disallowed.
+
+		SharedClient::instance->AddFormatter("Condition", [](
+			IScript* script,
+			const std::string_view& format,
+			const std::string_view& content)
+			{
+				auto* singleton = FunctorManager::GetSingleton();
+				std::string filename = std::format("{}{}", scriptedConfig, script->GetName());
+				clib_util::string::replace_all(filename, "::", "__");
+				return singleton->tmpLoadFile(filename, content, script);
+			});
 
 
+
+	}
 
 }

@@ -41,7 +41,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         "src/ConditionTLS.h"
         "src/Hooks.hpp"
         src/ScriptFunctions.hpp
-     "src/ScriptFunctions/Register_ObjectReference.h" "src/ScriptFunctions/Register_Door.h" "src/ScriptFunctions/Utility.h")
+     "src/ScriptFunctions/Register_ObjectReference.h" "src/ScriptFunctions/Register_Door.h" "src/ScriptFunctions/Utility.h" "src/ScriptFunctions/Register_Condition.h" "src/CachedScript.h")
 
     set(sources
             ${sources}

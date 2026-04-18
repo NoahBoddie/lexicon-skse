@@ -85,6 +85,9 @@ namespace LEX
 
 		static bool thunk(RE::TESObjectREFR* a_this, void* param1, void* param2, double& result)
 		{
+			bool should_set = true;
+
+			bool ret = true;
 
 			switch (reinterpret_cast<size_t>(param2))
 			{
@@ -106,15 +109,16 @@ namespace LEX
 
 					result = formula ? formula(a_this)->Call(subject, target, NAN) : NAN;
 				}
-				return true;
+				break;
 
 			case FunctorManager::k_exFuncCode:
 				if  constexpr (1)
 				{
 					Functor* functor = reinterpret_cast<Functor*>(param1);
 					result = functor->Execute(a_this);
+					should_set = functor ? functor->isSolvable : true;
 				}
-				return true;
+				break;
 
 			case FunctorManager::k_loadPropCode:
 				if  constexpr (1)
@@ -129,9 +133,14 @@ namespace LEX
 				return true;
 
 			default:
-				return func(a_this, param1, param2, result);
-
+				ret = func(a_this, param1, param2, result);
+				break;
 			}
+			
+			if (currentParams)
+				currentParams->preserveSolution = should_set;
+
+			return ret;
 
 		}
 
@@ -506,7 +515,8 @@ namespace LEX
 
 			case RE::FunctionID::kHasKeyword: {
 				RE::BGSKeyword* keyword = reinterpret_cast<RE::BGSKeyword*>(func_data.params[0]);
-				if (FunctorManager::Apply(keyword, func_data.params[0], func_data.params[1]) == true) {
+
+				if (FunctorManager::Apply(keyword, func_data.params[0], func_data.params[1], a_this->data) == true) {
 					func_id = replacement;
 				}
 				return;
@@ -592,6 +602,33 @@ namespace LEX
 
 		inline static REL::Relocation<decltype(thunk)> func;
 	};
+
+
+	struct SaveConditionResultHook
+	{
+		static void Install()
+		{
+			//SE: 4454C0, AE(6.640): 460B30, VR : ???
+			REL::Relocation<uintptr_t> hook{ REL::RelocationID { 29090, 29924, 29090 } , RELOCATION_OFFSET(0x6D8, 0x6FC) };
+
+			auto& trampoline = SKSE::GetTrampoline();
+
+			func = trampoline.write_call<5>(hook.address(), thunk);
+		}
+
+		static bool thunk(int32_t a1, float a2, float a3)
+		{
+			auto result = func(a1, a2, a3);
+
+			if (currentParams && currentParams->ShouldStoreSolution() == true)
+				currentParams->prevSolution = a2;
+
+			return result;
+		}
+
+		inline static REL::Relocation<decltype(thunk)> func;
+	};
+
 
 
 	struct SaveConsoleResultHook
@@ -688,12 +725,13 @@ namespace LEX
 
 	void Install()
 	{
-		SKSE::AllocTrampoline(14 * 7);
+		SKSE::AllocTrampoline(14 * 8);
 
 		//SE: 328110 + 75F//This can be used to get the result of a given console command call. I can use this to get the last value of the console
 		// then load it into a thread local system or something like that, allowing it to return a value through a reference.
 		SaveConsoleResultHook::Install();
 		SaveConditionParamsHook::Install();
+		SaveConditionResultHook::Install();
 		//DeleteConditionHook::Install();
 		//LoadConditionHook::Install();
 		LoadConditionFinalHook::Install();
