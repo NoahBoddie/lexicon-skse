@@ -30,6 +30,19 @@ namespace LEX
 
 			bool ret = true;
 
+			RE::TESObjectREFR* subject;
+			RE::TESObjectREFR* target;
+
+			if (auto params = currentParams->GetParams()) {
+				subject = params->actionRef;
+				target = params->targetRef;
+			}
+			else {
+				subject = target = nullptr;
+			}
+
+			float solution = currentParams->GetSolution();
+
 			switch (reinterpret_cast<size_t>(param2))
 			{
 			case 0xDEADBEEF:
@@ -37,18 +50,7 @@ namespace LEX
 				{
 					auto& formula = reinterpret_cast<ConditionFormula&>(param1);
 
-					RE::TESObjectREFR* subject;
-					RE::TESObjectREFR* target;
-
-					if (auto params = currentParams->GetParams()) {
-						subject = params->actionRef;
-						target = params->targetRef;
-					}
-					else {
-						subject = target = nullptr;
-					}
-
-					result = formula ? formula(a_this)->Call(subject, target, NAN) : NAN;
+					result = formula ? formula(a_this)->Call(Property::PopArgument(), target, subject, solution, 0) : 0;
 				}
 				break;
 
@@ -56,7 +58,7 @@ namespace LEX
 				if  constexpr (1)
 				{
 					Functor* functor = reinterpret_cast<Functor*>(param1);
-					result = functor->Execute(a_this);
+					result = functor->Execute(a_this, target, subject, solution);
 					should_set = functor ? functor->isSolvable : true;
 				}
 				break;

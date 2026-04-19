@@ -95,13 +95,13 @@ namespace LEX
 	using ConsoleFormula = Formula<Voidable(RE::TESObjectREFR::*)(Voidable)>;
 	
 	//TODO: Hunt these down and delete them.
-	using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(RE::TESObjectREFR*, RE::TESObjectREFR*)>;
-	using FunctorFormula = Formula<double(RE::TESObjectREFR::*)(runtime_type)>;
+	//using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(RE::TESObjectREFR*, RE::TESObjectREFR*)>;
+	//using FunctorFormula = Formula<double(RE::TESObjectREFR::*)(runtime_type)>;
 
-	using NewConditionFormula = Formula<double(RE::TESObjectREFR::*)(
-		RE::TESObjectREFR* target, 
+	using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(
+		runtime_type arg,
 		RE::TESObjectREFR* subject, 
-		runtime_type arg, 
+		RE::TESObjectREFR* target,
 		float solution)>;
 
 
@@ -249,7 +249,7 @@ namespace LEX
 
 	struct Functor
 	{
-		FunctorFormula formula{};
+		ConditionFormula formula{};
 
 		//I may make this a multi parameter set up by making it a null terminated unique_ptr string of type infos.
 		TypeInfo* parameter = nullptr;
@@ -266,7 +266,7 @@ namespace LEX
 
 
 
-		double Execute(RE::TESObjectREFR* refr)
+		double Execute(RE::TESObjectREFR* refr, RE::TESObjectREFR* subject, RE::TESObjectREFR* target, float solution)
 		{
 			//I'd like to pop regardless
 			Variable arg = Property::PopArgument();
@@ -285,7 +285,7 @@ namespace LEX
 				auto arg_type = arg.GetTypeInfo();
 				//This needs to use convert eventually.
 				if (!parameter || arg_type == parameter || parameter->Convert(arg, arg) == true) {
-					return formula(refr)->Call(arg, GetDefault());
+					return formula(refr)->Call(arg, subject, target, solution, GetDefault());
 				}
 				
 
@@ -612,7 +612,14 @@ namespace LEX
 
 						//Handle process here
 
-						auto func_form = FunctorFormula::Create({ parameter, "arg"}, name, to_process, script);
+						auto func_form = ConditionFormula::Create(
+							{ parameter, "arg"}, 
+							"target", 
+							"subject",
+							"solution",
+							name, 
+							to_process, 
+							script);
 
 						if (!func_form) {
 							logger::error("Functor formula failed to compile: {}", formula);
@@ -717,8 +724,10 @@ namespace LEX
 
 		static constexpr std::string_view k_loadProperty = "PROPERTY__";
 		static constexpr std::string_view k_executeFunctor = "FUNCTOR__";
-		static constexpr std::string_view k_returnFunction = "RETURN__";
+		static constexpr std::string_view k_argueFunctor = "ARGFUNCT__";
+		static constexpr std::string_view k_returnFunctor = "RETURN__";
 		static constexpr std::string_view k_loadFile = "LOADFILE__";
+		static constexpr std::string_view k_setFile = "SETFILE__";
 
 		//LOADPROP, CALLFUNC, LOADFILE are the names I'll be using.
 
@@ -727,11 +736,102 @@ namespace LEX
 		//static constexpr size_t k_retFuncCode = 0x1BADD00D;
 		static constexpr size_t k_loadFileCode = 0xBAD4EED;
 
+		static void HandleFunctor(const std::string_view& name, void*& arg1, void*& arg2)
+		{
+			std::string func_name;
+			func_name = name;
+
+			currentParams->AddFilename(func_name);
+			currentParams->ClearFilename();
+
+			Functor* functor = GetSingleton()->FindFunctor(func_name);
+			logger::info("Search for functor {}: {}", func_name, !!functor);
+			arg1 = functor;
+			arg2 = reinterpret_cast<void*>(k_exFuncCode);
+		}
+
+		static void HandleFile(const std::string_view& name, void*& arg1, void*& arg2, bool lock)
+		{
+			auto it = preservedNames.find(std::string{ name });
+
+			bool found = preservedNames.end() != it;
+
+			if (!found) {
+				logger::warn("Loaded file is not required for anything: {}", name);
+			}
+			else {
+				currentParams->SetFilename(*it, lock);
+			}
+			arg1 = reinterpret_cast<void*>(found);
+			arg2 = reinterpret_cast<void*>(k_loadFileCode);
+
+		}
+
 
 		static bool Apply(RE::BGSKeyword* keyword, void*& arg1, void*& arg2, RE::CONDITION_ITEM_DATA& data)
 		{
 			if (!keyword)
 				return false;
+
+
+
+
+			std::string_view name = keyword->formEditorID;
+
+
+			bool result = true;
+
+			if (name.starts_with(k_loadProperty) == true) {
+				std::string prop_name;
+				prop_name = name.substr(k_loadProperty.size());
+
+				currentParams->AddFilename(prop_name);
+
+				Property* property = GetSingleton()->FindProperty(prop_name);
+
+				logger::info("Search for property {}: {}", prop_name, !!property);
+				arg1 = property;
+				arg2 = reinterpret_cast<void*>(k_loadPropCode);
+			}
+			else if (name.starts_with(k_executeFunctor) == true) {
+				HandleFunctor(name.substr(k_executeFunctor.size()), arg1, arg2);
+
+				if (!arg1) {
+					data.flags.global = false;
+					data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
+					data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+				}
+
+			}
+			else if (name.starts_with(k_returnFunctor) == true) {
+				HandleFunctor(name.substr(k_returnFunctor.size()), arg1, arg2);
+				data.flags.global = false;
+				data.flags.opCode = arg1 ? RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo : RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
+				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+			}
+			else if (name.starts_with(k_argueFunctor) == true) {
+				HandleFunctor(name.substr(k_argueFunctor.size()), arg1, arg2);
+				data.flags.global = false;
+				data.flags.opCode = arg1 ? RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo : RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
+				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+			}
+			else if (name.starts_with(k_loadFile) == true) {
+				HandleFile(name.substr(k_loadFile.size()), arg1, arg2, false);
+			}
+			else if (name.starts_with(k_setFile) == true) {
+				HandleFile(name.substr(k_setFile.size()), arg1, arg2, true);
+			}
+			else {
+				result = false;
+			}
+
+
+			return result;
+
+
+
+
+
 
 			//I'd like to turn these into functions to make this easier on me.
 			auto key_size = keyword->formEditorID.size();
@@ -752,7 +852,7 @@ namespace LEX
 				std::string func_name = keyword->GetFormEditorID() + size;
 
 				currentParams->AddFilename(func_name);
-				currentParams->SetFilename({});
+				currentParams->ClearFilename();
 
 				Functor* functor = GetSingleton()->FindFunctor(func_name);
 				logger::info("Search for functor {}: {}", func_name, !!functor);
@@ -760,12 +860,12 @@ namespace LEX
 				arg2 = reinterpret_cast<void*>(k_exFuncCode);
 				return true;
 			}
-			else if (auto size = k_returnFunction.size(); key_size > size && strnicmp(k_returnFunction.data(), keyword->GetFormEditorID(), size) == 0) {
+			else if (auto size = k_returnFunctor.size(); key_size > size && strnicmp(k_returnFunctor.data(), keyword->GetFormEditorID(), size) == 0) {
 				
 				std::string func_name = keyword->GetFormEditorID() + size;
 
 				currentParams->AddFilename(func_name);
-				currentParams->SetFilename({});
+				currentParams->ClearFilename();
 
 				Functor* functor = GetSingleton()->FindFunctor(func_name);
 				logger::info("Search for functor {}: {}", func_name, !!functor);
@@ -781,15 +881,17 @@ namespace LEX
 			else if (auto size = k_loadFile.size(); key_size > size && strnicmp(k_loadFile.data(), keyword->GetFormEditorID(), size) == 0) {
 				std::string file_name = keyword->GetFormEditorID() + size;
 
-				auto it = preservedNames.emplace(file_name);
+				auto it = preservedNames.find(file_name);
 
-				if (!it.second) {
+				bool found = preservedNames.end() != it;
+
+				if (!found) {
 					logger::warn("Loaded file is not required for anything: {}", file_name);
 				}
 				else {
-					currentParams->SetFilename(*it.first);
+					currentParams->SetFilename(*it, true);
 				}
-				arg1 = reinterpret_cast<void*>(it.second);
+				arg1 = reinterpret_cast<void*>(found);
 				arg2 = reinterpret_cast<void*>(k_loadFileCode);
 
 				return true;

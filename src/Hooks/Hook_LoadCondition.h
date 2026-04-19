@@ -69,7 +69,8 @@ namespace LEX
 
 							report::compile::info("compiling '{}'", form);
 
-							ConditionFormula formula = ConditionFormula::Create("subject", "target", form);
+							//TODO: Use construct_at/destruct_at
+							ConditionFormula formula = ConditionFormula::Create({"voidable", "arg"}, "subject", "target", "solution", form);
 
 							if (formula) {
 								reinterpret_cast<ConditionFormula&>(arg) = std::move(formula);

@@ -196,13 +196,22 @@ void InitializeMessaging() {
 
 
 
-//Proxy is a class that owns an object 
+
+
+
+
 
 
 void LexTesting()
 {
+    const int&& test1 = 1;
+
+    auto& test2 = test1;
+
     ProjectManager::instance->InitMain();
     
+
+
 }
 
 

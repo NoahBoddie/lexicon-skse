@@ -8,6 +8,7 @@ namespace LEX
 	{
 		RE::ConditionCheckParams* params = nullptr;
 		std::string_view filename;
+		bool allowFilenameClear = true;
 		Variable argument{};
 		double prevSolution = NAN;
 		bool preserveSolution = true;
@@ -16,6 +17,11 @@ namespace LEX
 		bool ShouldStoreSolution()
 		{
 			return this ? std::exchange(preserveSolution, true) : false;
+		}
+
+		float GetSolution()
+		{
+			return this ? prevSolution : 0;
 		}
 
 
@@ -42,11 +48,18 @@ namespace LEX
 		}
 
 
-		void SetFilename(std::string_view file)
+		void SetFilename(std::string_view file, bool allow_clear = true)
 		{
-			if (this)
-			{
+			if (this){
 				filename = file;
+				allowFilenameClear = allow_clear;
+			}
+		}
+
+		void ClearFilename()
+		{
+			if (this && allowFilenameClear) {
+				filename = {};
 			}
 		}
 
