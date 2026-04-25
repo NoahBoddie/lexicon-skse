@@ -20,9 +20,14 @@ namespace LEX
 		{
 			auto result = func(a1, a2, a3);
 
-			if (currentParams && currentParams->ShouldStoreSolution() == true)
+			if (result && currentParams && currentParams->ShouldStoreSolution() == true)
+			{
 				currentParams->prevSolution = a2;
-
+				
+				if (currentParams->ShouldSolveArgument() == true) {
+					currentParams->argument = a2;
+				}
+			}
 			return result;
 		}
 

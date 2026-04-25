@@ -42,23 +42,31 @@ namespace LEX
 			}
 
 			float solution = currentParams->GetSolution();
-
+			
 			switch (reinterpret_cast<size_t>(param2))
 			{
 			case 0xDEADBEEF:
 				if  constexpr (1)
 				{
-					auto& formula = reinterpret_cast<ConditionFormula&>(param1);
+					if (!param1) {
+						result = NAN;
+						break;
+					}
+					auto& formula = *reinterpret_cast<ConditionFormula*>(param1);
 
-					result = formula ? formula(a_this)->Call(Property::PopArgument(), target, subject, solution, 0) : 0;
+					result = formula ? formula(a_this)->Call(Property::PopArgument(), subject, target, solution, 0) : 0;
 				}
 				break;
+
+			case FunctorManager::k_argFuncCode:
+				currentParams->solveToArg = true;
+				[[fallthrough]];
 
 			case FunctorManager::k_exFuncCode:
 				if  constexpr (1)
 				{
 					Functor* functor = reinterpret_cast<Functor*>(param1);
-					result = functor->Execute(a_this, target, subject, solution);
+					result = functor->Execute(a_this, subject, target, solution);
 					should_set = functor ? functor->isSolvable : true;
 				}
 				break;

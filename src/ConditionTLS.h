@@ -4,19 +4,27 @@
 
 namespace LEX
 {
+	//Automate the existence of this some. Like, I can probably make it auto set the current or something and set the 
+	// previous when it dies.
 	struct ConditionTLS
 	{
 		RE::ConditionCheckParams* params = nullptr;
 		std::string_view filename;
 		bool allowFilenameClear = true;
 		Variable argument{};
-		double prevSolution = NAN;
+		float prevSolution = 0;
 		bool preserveSolution = true;
+		bool solveToArg = false;
 		//double prevReturn = NAN;
 
 		bool ShouldStoreSolution()
 		{
 			return this ? std::exchange(preserveSolution, true) : false;
+		}
+
+		bool ShouldSolveArgument()
+		{
+			return this ? std::exchange(solveToArg, false) : false;
 		}
 
 		float GetSolution()

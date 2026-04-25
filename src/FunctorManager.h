@@ -249,7 +249,18 @@ namespace LEX
 
 	struct Functor
 	{
+		struct Params
+		{
+			static constexpr size_t maxCount = 3;
+
+			TypeInfo* type[maxCount];
+			bool optional = false;
+		};
+
 		ConditionFormula formula{};
+
+
+
 
 		//I may make this a multi parameter set up by making it a null terminated unique_ptr string of type infos.
 		TypeInfo* parameter = nullptr;
@@ -258,10 +269,11 @@ namespace LEX
 		uint32_t ownerID = -1;
 		bool errorDisplayed = false;//Done so we can skip over stuff like the thing not loading.
 		bool isSolvable = true;
+		bool optionalParam = false;
+		
 		double GetDefault()
 		{
-			constexpr double nan = std::numeric_limits<double>::quiet_NaN();
-			return defaultValue.value_or(nan);
+			return defaultValue.value_or(0);
 		}
 
 
@@ -272,20 +284,24 @@ namespace LEX
 			Variable arg = Property::PopArgument();
 
 			if (this) {
-				constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+				auto def = GetDefault();
 
-				if (arg.IsVoid() && parameter) {
-					return nan;
+				bool is_void = arg.IsVoid();
+
+				if (is_void && parameter) {
+					if (!optionalParam)
+						return def;
+
+					arg = parameter->GetDefault();
 				}
-
-				if (!arg.IsVoid() && !parameter) {
-					return nan;
+				else if (!arg.IsVoid() && !parameter) {
+					return def;
 				}
 
 				auto arg_type = arg.GetTypeInfo();
 				//This needs to use convert eventually.
 				if (!parameter || arg_type == parameter || parameter->Convert(arg, arg) == true) {
-					return formula(refr)->Call(arg, subject, target, solution, GetDefault());
+					return formula(refr)->Call(arg, subject, target, solution, def);
 				}
 				
 
@@ -354,7 +370,11 @@ namespace LEX
 		}
 
 
+		//This is a set of loose formulas, in case someone copies and pastes them. It will also allow 
+		// me to not delete them. when deleting a condition
+		inline static std::map<std::string, ConditionFormula> formulas;
 
+		//I'm thinking of giving these ids instead so I can insert them somewhere and forget about them.
 		inline static std::map<std::string, Property, std::less<>> propertyNames;//Might use reference wrappers
 		inline static std::map<std::string, Functor, std::less<>> functors;
 
@@ -364,6 +384,51 @@ namespace LEX
 		//This is what should be in the condition function thingy majig.
 		//external Variable GetProperty(string name);
 
+
+
+		static ConditionFormula* CreateFormula(std::string_view str)
+		{
+			std::string form;
+			form = str;
+
+			report::compile::info("compiling '{}'", form);
+
+
+			auto it = formulas.find(form);
+
+
+			ConditionFormula* result;
+
+			if (formulas.end() == it) {
+				ConditionFormula& formula = formulas[form] = ConditionFormula::Create({ "voidable", "arg" }, "subject", "target", "solution", form, cached_script::condition());
+
+				if (formula) {
+					report::compile::info("Successfully compiled '{}'", form);
+				}
+				else {
+					report::compile::failure("Condition [{}] failed to compile.", form);
+				}
+
+				result = &formula;
+			}
+			else
+			{
+				ConditionFormula& formula = formulas[form];
+				
+				if (formula) {
+					report::compile::info("Reacquired successful formula [{}]", form);
+				}
+				else {
+					report::compile::failure("Reacquired failed formula [{}]", form);
+				}
+
+				result = &formula;
+			}
+
+
+
+			return result;
+		}
 
 
 
@@ -491,7 +556,7 @@ namespace LEX
 						
 						bool commit = true;
 
-						if (value.type() != json::value_t::string) {
+						if (is_formula && value.type() != json::value_t::string) {
 							logger::warn("Expected property {}::{} to be a string", filename, name);
 						}
 
@@ -606,6 +671,13 @@ namespace LEX
 								functor.defaultValue = static_cast<float>(number);
 							});
 
+						IfFind(item, "optional", [&](json& value)
+							{
+								functor.optionalParam = value;
+							});
+
+
+
 						if (Parser::CreateSyntax<LineParser>(to_process, formula) == false) {
 							logger::error("Functor formula failed to be parsed: {}", formula);
 						}
@@ -633,9 +705,7 @@ namespace LEX
 				});
 		}
 
-		inline static uint32_t nextFileCode = 1;
-
-		bool tmpLoadFile(std::string_view filename, std::string_view text, IScript* script) try
+		static bool LoadFile(std::string_view filename, std::string_view text, IScript* script) try
 		{
 			json contents = json::parse(text, nullptr, true, true);
 
@@ -659,7 +729,7 @@ namespace LEX
 		
 
 
-		void tmpLoadFiles()
+		static void LoadFiles()
 		{
 			//This should use the selected lexicon folder
 			std::vector<std::pair<std::string, std::string>> files =  SearchFiles("Data/SKSE/Lexicon/Resources/LexiconSKSE", ".json");
@@ -683,7 +753,7 @@ namespace LEX
 					stream << file_input.rdbuf();
 					std::string text = stream.str();
 
-					tmpLoadFile(filename, text, script);
+					LoadFile(filename, text, script);
 				}
 				catch (std::exception& error)
 				{
@@ -697,28 +767,21 @@ namespace LEX
 
 
 
-		void Initialize()
+		static void Initialize()
 		{
 			if (_init)
 				return;
 		
 		
-			tmpLoadFiles();
+			LoadFiles();
 			//I'll be frank, I fucking hate this as a concept. I think it's bad as shit.
 			// With that being said, this seems to be the safest place to do this for now.
 			// But ideally, I'd like to execute this around when the game finishes it's static initialization
 
 			_init = true;
+			LoadWaiting();
 
-			Component::LinkComponents(LinkFlag::External);
-
-		}
-
-		static FunctorManager* GetSingleton()
-		{
-			static FunctorManager singleton;
-			singleton.Initialize();
-			return &singleton;
+			
 
 		}
 
@@ -729,11 +792,13 @@ namespace LEX
 		static constexpr std::string_view k_loadFile = "LOADFILE__";
 		static constexpr std::string_view k_setFile = "SETFILE__";
 
+		inline static uint32_t nextFileCode = 1;
+
 		//LOADPROP, CALLFUNC, LOADFILE are the names I'll be using.
 
 		static constexpr size_t k_loadPropCode = 0xDEAD4EAD;
 		static constexpr size_t k_exFuncCode = 0x600DFEED;
-		//static constexpr size_t k_retFuncCode = 0x1BADD00D;
+		static constexpr size_t k_argFuncCode = 0x1BADD00D;
 		static constexpr size_t k_loadFileCode = 0xBAD4EED;
 
 		static void HandleFunctor(const std::string_view& name, void*& arg1, void*& arg2)
@@ -744,7 +809,7 @@ namespace LEX
 			currentParams->AddFilename(func_name);
 			currentParams->ClearFilename();
 
-			Functor* functor = GetSingleton()->FindFunctor(func_name);
+			Functor* functor = FindFunctor(func_name);
 			logger::info("Search for functor {}: {}", func_name, !!functor);
 			arg1 = functor;
 			arg2 = reinterpret_cast<void*>(k_exFuncCode);
@@ -760,13 +825,26 @@ namespace LEX
 				logger::warn("Loaded file is not required for anything: {}", name);
 			}
 			else {
-				currentParams->SetFilename(*it, lock);
+				currentParams->SetFilename(*it, !lock);
 			}
 			arg1 = reinterpret_cast<void*>(found);
 			arg2 = reinterpret_cast<void*>(k_loadFileCode);
 
 		}
 
+
+		static void AutoPassCheck(RE::CONDITION_ITEM_DATA& data)
+		{
+			if (data.flags.global && data.comparisonValue.g) {
+				std::string_view name = data.comparisonValue.g->GetFormEditorID();
+
+				if (name == "LEX_FORCE_SUCCESS") {
+					data.flags.global = false;
+					data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo;
+					data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+				}
+			}
+		}
 
 		static bool Apply(RE::BGSKeyword* keyword, void*& arg1, void*& arg2, RE::CONDITION_ITEM_DATA& data)
 		{
@@ -787,7 +865,7 @@ namespace LEX
 
 				currentParams->AddFilename(prop_name);
 
-				Property* property = GetSingleton()->FindProperty(prop_name);
+				Property* property = FindProperty(prop_name);
 
 				logger::info("Search for property {}: {}", prop_name, !!property);
 				arg1 = property;
@@ -801,7 +879,6 @@ namespace LEX
 					data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
 					data.comparisonValue.f = -std::numeric_limits<float>::infinity();
 				}
-
 			}
 			else if (name.starts_with(k_returnFunctor) == true) {
 				HandleFunctor(name.substr(k_returnFunctor.size()), arg1, arg2);
@@ -811,6 +888,7 @@ namespace LEX
 			}
 			else if (name.starts_with(k_argueFunctor) == true) {
 				HandleFunctor(name.substr(k_argueFunctor.size()), arg1, arg2);
+				arg2 = reinterpret_cast<void*>(k_argFuncCode);
 				data.flags.global = false;
 				data.flags.opCode = arg1 ? RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo : RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
 				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
@@ -825,82 +903,44 @@ namespace LEX
 				result = false;
 			}
 
+			if (result) {
+				AutoPassCheck(data);
+			}
+
 
 			return result;
-
-
-
-
-
-
-			//I'd like to turn these into functions to make this easier on me.
-			auto key_size = keyword->formEditorID.size();
-
-			if (auto size = k_loadProperty.size(); key_size > size &&  strnicmp(k_loadProperty.data(), keyword->GetFormEditorID(), size) == 0) {
-				std::string prop_name = keyword->GetFormEditorID() + size;
-				
-				currentParams->AddFilename(prop_name);
-
-				Property* property = GetSingleton()->FindProperty(prop_name);
-
-				logger::info("Search for property {}: {}", prop_name, !!property);
-				arg1 = property;
-				arg2 = reinterpret_cast<void*>(k_loadPropCode);
-				return true;
-			}
-			else if (auto size = k_executeFunctor.size(); key_size > size && strnicmp(k_executeFunctor.data(), keyword->GetFormEditorID(), size) == 0) {
-				std::string func_name = keyword->GetFormEditorID() + size;
-
-				currentParams->AddFilename(func_name);
-				currentParams->ClearFilename();
-
-				Functor* functor = GetSingleton()->FindFunctor(func_name);
-				logger::info("Search for functor {}: {}", func_name, !!functor);
-				arg1 = functor;
-				arg2 = reinterpret_cast<void*>(k_exFuncCode);
-				return true;
-			}
-			else if (auto size = k_returnFunctor.size(); key_size > size && strnicmp(k_returnFunctor.data(), keyword->GetFormEditorID(), size) == 0) {
-				
-				std::string func_name = keyword->GetFormEditorID() + size;
-
-				currentParams->AddFilename(func_name);
-				currentParams->ClearFilename();
-
-				Functor* functor = GetSingleton()->FindFunctor(func_name);
-				logger::info("Search for functor {}: {}", func_name, !!functor);
-				arg1 = functor;
-				arg2 = reinterpret_cast<void*>(k_exFuncCode);
-				data.flags.global = false;
-				data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo;
-				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
-				//data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo;
-				//data.comparisonValue.f = 1000000;
-				return true;
-			}
-			else if (auto size = k_loadFile.size(); key_size > size && strnicmp(k_loadFile.data(), keyword->GetFormEditorID(), size) == 0) {
-				std::string file_name = keyword->GetFormEditorID() + size;
-
-				auto it = preservedNames.find(file_name);
-
-				bool found = preservedNames.end() != it;
-
-				if (!found) {
-					logger::warn("Loaded file is not required for anything: {}", file_name);
-				}
-				else {
-					currentParams->SetFilename(*it, true);
-				}
-				arg1 = reinterpret_cast<void*>(found);
-				arg2 = reinterpret_cast<void*>(k_loadFileCode);
-
-				return true;
-			}
-
-
-			return false;
 		}
 		
+		struct File
+		{
+			std::string filename;
+			std::string content;
+			IScript* script;
+
+
+		};
+
+
+		inline static std::vector<File> waitingFiles;
+		
+		static void LoadWaiting()
+		{
+			for (auto& waiter : waitingFiles){
+				FunctorManager::LoadFile(waiter.filename, waiter.content, waiter.script);
+			}
+
+			waitingFiles.clear();
+		}
+
+		static void HoldFile(std::string filename, std::string content, IScript* script)
+		{
+			if (_init) {
+				FunctorManager::LoadFile(filename, content, script);
+				return;
+			}
+
+			waitingFiles.emplace_back(filename, content, script);
+		}
 
 
 		inline static bool _init = false;
@@ -918,10 +958,11 @@ namespace LEX
 			const std::string_view& format,
 			const std::string_view& content)
 			{
-				auto* singleton = FunctorManager::GetSingleton();
 				std::string filename = std::format("{}{}", scriptedConfig, script->GetName());
 				clib_util::string::replace_all(filename, "::", "__");
-				return singleton->tmpLoadFile(filename, content, script);
+				FunctorManager::HoldFile(filename, std::string{ content }, script);
+				return true;
+				//return singleton->tmpLoadFile(filename, content, script);
 			});
 
 

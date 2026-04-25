@@ -23,7 +23,8 @@ namespace LEX
 			func(a1);
 
 			//Component::LinkComponents(LinkFlag::External);
-			FunctorManager::GetSingleton();
+			FunctorManager::Initialize();
+			Component::LinkComponents(LinkFlag::External);
 
 		}
 

@@ -129,6 +129,15 @@ namespace LEX::REG::REFR
 	};
 
 
+	inline RE::BGSLocation* GetCurrentLocation(RE::TESObjectREFR* a_this)
+	{
+		if (!a_this) {
+			return nullptr;
+		}
+
+		return a_this->GetCurrentLocation();
+	}
+
 
 	inline void Register()
 	{
@@ -139,5 +148,6 @@ namespace LEX::REG::REFR
 		dump = ProcedureHandler::instance->RegisterFunction(IsObjective, "Shared::ObjectReference::IsObjective");					//02
 		dump = ProcedureHandler::instance->RegisterFunction(GetTeleportReference, "Shared::ObjectReference::GetTeleportReference");	//03
 		dump = ProcedureHandler::instance->RegisterFunction(GetParentCell, "Shared::ObjectReference::GetParentCell");				//04
+		dump = ProcedureHandler::instance->RegisterFunction(GetCurrentLocation, "Shared::ObjectReference::GetCurrentLocation");				//04
 	}
 }

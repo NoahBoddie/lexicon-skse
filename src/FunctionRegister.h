@@ -715,6 +715,7 @@ namespace LEX
 
 		dump = ProcedureHandler::instance->RegisterFunction(IsSneaking, "Shared::GameObjects::IsSneaking");			//32
 		dump = ProcedureHandler::instance->RegisterFunction(IsWeaponDrawn, "Shared::GameObjects::IsWeaponDrawn");			//33
+
 		//*/
 	}
 

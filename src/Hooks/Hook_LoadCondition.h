@@ -54,12 +54,6 @@ namespace LEX
 						if (*begin != '\0')
 						{
 							auto string = arg;
-
-							func_data.function = RE::FunctionID::kGetNoRumors;
-							func_data.params[0] = nullptr;
-							reinterpret_cast<size_t&>(func_data.params[1]) = 0xDEADBEEF;
-
-
 							length--, begin++;
 							length--, begin++;
 
@@ -67,19 +61,13 @@ namespace LEX
 
 							std::string_view form{ begin, length };
 
-							report::compile::info("compiling '{}'", form);
 
-							//TODO: Use construct_at/destruct_at
-							ConditionFormula formula = ConditionFormula::Create({"voidable", "arg"}, "subject", "target", "solution", form);
 
-							if (formula) {
-								reinterpret_cast<ConditionFormula&>(arg) = std::move(formula);
-								report::compile::info("Successfully compiled '{}'", form);
-							}
-							else {
-								report::compile::failure("Condition [{}] failed to compile.", form);
-							}
-
+							func_data.function = RE::FunctionID::kGetNoRumors;
+							func_data.params[0] = FunctorManager::CreateFormula(form);
+							func_data.params[1] = reinterpret_cast<void*>(0xDEADBEEF);
+							
+							FunctorManager::AutoPassCheck(a_this->data);
 							string->~BSFixedString();
 
 						}

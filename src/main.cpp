@@ -760,6 +760,7 @@ namespace LEX
 
     void TestingCompile()
     {
+        LEX_VERSION;
         Script* script = nullptr;
         SyntaxRecord record;
         script->AppendContent(record);
@@ -778,6 +779,5 @@ namespace LEX
 
     //template <bool Returns, uint32_t Size>
     //struct Formula<R(Args...)> : public FormulaHandler{};
-
 }
 

@@ -22,7 +22,7 @@ namespace LEX
 	TypeOffset LEX::ObjectInfo<RE::TESForm*>::GetTypeOffset(ObjectData& data)
 	{
 		auto form = data.get<RE::TESForm*>();
-
+	
 		if (!form) {
 			return static_cast<TypeOffset>(RE::FormType::None);
 		}

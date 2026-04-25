@@ -57,7 +57,7 @@ namespace LEX
 			//*/
 		}
 
-		static bool thunk(RE::TESConditionItem* a_this, RE::ConditionCheckParams* params)
+		static bool thunk(RE::TESCondition* a_this, RE::ConditionCheckParams* params)
 		{
 			ConditionTLS storage{ params };
 
