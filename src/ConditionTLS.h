@@ -4,6 +4,13 @@
 
 namespace LEX
 {
+	enum struct ForceResult
+	{
+		NA,
+		True,
+		False,
+	};
+
 	//Automate the existence of this some. Like, I can probably make it auto set the current or something and set the 
 	// previous when it dies.
 	struct ConditionTLS
@@ -15,6 +22,27 @@ namespace LEX
 		float prevSolution = 0;
 		bool preserveSolution = true;
 		bool solveToArg = false;
+		ForceResult force = ForceResult::NA;
+
+
+		void CheckResult(bool& result)
+		{
+			if (this)
+			{
+				switch (force)
+				{
+				case ForceResult::True:
+					result = true;
+					break;
+				case ForceResult::False:
+					result = false;
+					break;
+				}
+
+				force = ForceResult::NA;
+			}
+		}
+
 		//double prevReturn = NAN;
 
 		bool ShouldStoreSolution()

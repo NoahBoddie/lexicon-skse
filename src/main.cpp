@@ -779,5 +779,264 @@ namespace LEX
 
     //template <bool Returns, uint32_t Size>
     //struct Formula<R(Args...)> : public FormulaHandler{};
+
+
+
+
+    //The idea of this given type is to take the parameters of a given function, and insert another given type
+    // into the front of that type
+    //This first one might be the detail version, as I think it would be good to not have
+    template <typename F, typename P, size_t S, bool B = true, typename... Ps>
+    struct LoadFunctionWithArgs : public LoadFunctionWithArgs<F, P, S - 1, B, P, Ps...> {};
+
+
+    template <typename P, typename R, typename... Args, bool B, typename... Ps>
+    struct LoadFunctionWithArgs<R(Args...), P, 0, B, Ps...>
+    {
+        using type = std::conditional_t<B, R(Ps..., Args...), R(Args..., Ps...)>;
+    };
+
+    template <typename P, typename R, typename T, typename... Args, bool B, typename... Ps>
+    struct LoadFunctionWithArgs<R(T::*)(Args...), P, 0, B, Ps...>
+    {
+        using type = std::conditional_t <B, R(T::*)(Ps..., Args...), R(T::*)(Args..., Ps...)>;
+    };
+
+
+    template <size_t Limit, size_t Start = 0>
+    auto BinarySearch(size_t value, auto func) -> decltype(func.operator()<0>())
+    {
+        
+        if constexpr (Limit == Start) {
+            if (value == Limit) {
+                return func.operator()<Limit>();
+            }
+        }
+        else {
+            //Using this is an option, though kinda a lame one.
+            //std::integral_constant<size_t, 1>
+            constexpr size_t Middle = (size_t)std::lerp(Limit, Start, 0.5);
+
+            if (value < Middle) {
+                return BinarySearch<Middle, Start>(value, func);
+            }
+            else if (value > Middle) {
+                return BinarySearch<Limit, Middle>(value, func);
+            }
+            else {
+                return func.operator()<Middle>();
+            }
+        }
+    }
+
+
+
+
+
+    using ConditionSignBase = double(RE::TESObjectREFR::*)(
+        RE::TESObjectREFR* subject,
+        RE::TESObjectREFR* target,
+        float solution);
+
+
+    template <size_t Sz>
+    using NewConditionFormula = Formula<typename LoadFunctionWithArgs<ConditionSignBase, runtime_type, Sz, false>::type>;
+
+    struct Parameter
+    {
+        static constexpr size_t MAX_SIZE = 10;
+
+        enum Setting
+        {
+            kRequired,   //Required it's filled out.
+            kDefaulted,  //Defaults the type
+            kOptional,   //Parameter is optional on the other side
+        };
+
+        TypeInfo* type = nullptr;
+        Setting settings = kRequired;
+
+
+        bool IsOptional() const
+        {
+            return settings != Setting::kRequired;
+        }
+    };
+    
+    struct NamedParameter : public Parameter
+    {
+        std::string_view name;
+    };
+    
+
+    template <size_t Size, size_t... Indices>
+    struct FunctorHelper : public FunctorHelper<Size - 1, Indices..., sizeof...(Indices)>
+    {
+
+    };
+
+    template <size_t... Indices>
+    struct FunctorHelper<0, Indices...>
+    {
+        static constexpr size_t SIZE = sizeof...(Indices);
+
+        //this should probably use an out
+        static auto Execute(DynamicFormula& base, std::span<Variable> args, RE::TESObjectREFR* refr, RE::TESObjectREFR* subject, RE::TESObjectREFR* target, float solution)
+        {
+            double def = NAN;
+
+            auto& formula = base.As<NewConditionFormula<SIZE>>();
+
+
+            return formula(refr)->Call(subject, target, solution, args[Indices]..., def);
+        }
+
+        static auto Create(std::string_view name, Script* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+        {
+            return NewConditionFormula<SIZE>::Create(
+                "target",
+                "subject",
+                "solution",
+                params[Indices]...,
+                name,
+                to_process,
+                script);
+
+        }
+    };
+
+    
+
+    inline bool PopArguments(uint32_t min, uint32_t size, std::vector<Variable>& args)
+    {
+        std::vector<Variable> fake;
+
+
+        return true;
+    }
+
+
+    struct NewFunctor
+    {
+        enum Flags
+        {
+            kNone = 0,
+            kErrorDisplayed = 1 << 0,
+            kIsSolvable = 1 << 1,
+            kUsesDefault = 1 << 2,
+        };
+
+
+        
+        //std::vector<Param> parameters;
+
+        std::unique_ptr<Parameter[]> parameters = nullptr;
+        uint32_t size = 0;
+
+        //If the number of args are less than the size of parameters, but more than the minimum, it won't pad the arg 
+        // collection. If the number of args is below the minimum it will fail to execute.
+        uint32_t min = -1;
+
+        //Want to make a convert function for formula handlers.
+        DynamicFormula formula{};
+
+        //Instead of default I'll make a struct that will allow me to just force the value to be one or the other.
+        float defaultValue = NAN;
+        Flags flags = kNone;
+
+
+        void SetParameters(std::span<Parameter> params)
+        {
+            auto length = params.size();
+
+            if (length) {
+                parameters = std::make_unique<Parameter[]>(length);
+                size = length;
+                std::move(params.begin(), params.end(), parameters.get());
+            }
+        }
+
+        bool CreateFormula(std::string_view name, Script* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+        {
+            auto length = params.size();
+
+            if (size != length) {
+                //log a failure
+                return false;
+            }
+
+            BinarySearch<Parameter::MAX_SIZE>(length, [&]<size_t I>
+            {
+                formula = FunctorHelper<I>::Create(name, script, to_process, params);
+            });
+
+            return formula;
+        }
+
+        double Execute(RE::TESObjectREFR* refr, RE::TESObjectREFR* subject, RE::TESObjectREFR* target, float solution)
+        {
+            //I'd like to pop regardless
+            //Variable arg = Property::PopArgument();
+
+            //This should be gotten from a function that gets a range of what youre allowed to use
+            
+            if (this) {
+                std::vector<Variable> args;
+
+
+                if (PopArguments(min, size, args) == false) {
+                    return -1;
+                }
+
+                auto def = -1.0;
+
+                auto length = args.size();
+
+                for (int64_t i = 0; i < length; i++)
+                {
+                    auto& arg = args[i];
+                    auto& param = parameters[i];
+                    auto type = param.type;
+
+                    bool is_void = arg.IsVoid();
+
+                    if (is_void && type) {
+                        if (param.IsOptional() == false)
+                            return def;
+
+                        arg = type->GetDefault();
+                    }
+                    else if (!arg.IsVoid() && !type) {
+                        return def;
+                    }
+
+                    auto arg_type = arg.GetTypeInfo();
+                    
+                    if (type && arg_type != type && type->Convert(arg, arg) == false) {
+                        return def;
+                    }
+
+                }
+
+                return BinarySearch<Parameter::MAX_SIZE>(length, [&]<size_t I>
+                {
+                    return FunctorHelper<I>::Execute(formula, args, refr, subject, target, solution);
+                });
+            }
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    };
+
+
+
+
+    inline void TestLoading()
+    {
+        auto func = []<size_t T>(){};
+        
+        BinarySearch<10>(1, func);
+        LoadFunctionWithArgs<void(RE::TESObjectREFR::*)(int, int), runtime_type, 3>::type;
+    }
+
 }
 

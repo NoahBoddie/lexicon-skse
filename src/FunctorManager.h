@@ -105,6 +105,9 @@ namespace LEX
 		float solution)>;
 
 
+
+
+
 	void TestingFact()
 	{
 	}
@@ -249,7 +252,7 @@ namespace LEX
 
 	struct Functor
 	{
-		struct Params
+		struct NewParams
 		{
 			static constexpr size_t maxCount = 3;
 
