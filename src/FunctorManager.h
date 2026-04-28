@@ -7,6 +7,9 @@
 
 #include "CachedScript.h"
 
+#include "Parameter.h"
+#include "ParameterCode.h"
+
 namespace RE
 {
 	using FunctionID = FUNCTION_DATA::FunctionID;
@@ -94,40 +97,38 @@ namespace LEX
 
 	using ConsoleFormula = Formula<Voidable(RE::TESObjectREFR::*)(Voidable)>;
 	
-	//TODO: Hunt these down and delete them.
-	//using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(RE::TESObjectREFR*, RE::TESObjectREFR*)>;
-	//using FunctorFormula = Formula<double(RE::TESObjectREFR::*)(runtime_type)>;
-
-	using ConditionFormula = Formula<double(RE::TESObjectREFR::*)(
-		runtime_type arg,
-		RE::TESObjectREFR* subject, 
+	using ConditionBase = double(RE::TESObjectREFR::*)(
+		RE::TESObjectREFR* subject,
 		RE::TESObjectREFR* target,
-		float solution)>;
+		float solution);
+
+
+	using ConditionFormula = Formula<ConditionBase>;
+
+	template <size_t Sz>
+	using FunctorFormula = Formula<typename LoadFunctionWithArgs<ConditionBase, runtime_type, Sz, false>::type>;
 
 
 
 
-
-	void TestingFact()
-	{
-	}
 
 	struct Property
 	{
 		inline static std::set<Variable, var_cmp> propertyValues;
-		
+
+		//I think the type here might not be needed.
 		std::string type{};
 		std::variant<std::monostate, PropertyFormula, const Variable*> _value;
 		uint32_t ownerID = -1;
 		bool errorDisplayed = false;
 		Property() = default;
-		Property(std::string type_name, std::string formula) : type { type_name }
+		Property(std::string type_name, std::string formula) : type{ type_name }
 		{
 			auto result = PropertyFormula::Create(type_name, formula);
 			_value = result;
 		}
 
-		Property(std::string type_name, Variable var) : type { type_name }
+		Property(std::string type_name, Variable var) : type{ type_name }
 		{
 			auto it = propertyValues.emplace(std::move(var)).first;
 			_value = &(*it);
@@ -138,7 +139,7 @@ namespace LEX
 		bool SetType(const std::string_view& str)
 		{
 			bool result;
-			
+
 
 			if (str.ends_with("()") == true) {
 				type = str.substr(0, str.size() - 2);
@@ -177,42 +178,36 @@ namespace LEX
 
 
 
-		static bool LoadArgument(const Variable& arg)
+
+
+		bool Load(uint32_t index)
 		{
-			if (!arg.IsVoid()) {
-				
-				//TODO: I'm actually willing to have this push out, but perhaps give a warning if it does.
-				return currentParams->SetArgument(arg);
+			if (this)
+			{
+				if (index < 0)
+				{
+					auto arg = value();
+
+					//TODO: Should try to convert
+					if (arg && arg->IsNumber() == true) {
+						currentParams->TrySolution(arg->AsNumber());
+					}
+				}
+				else if (index > 0) {
+					index--;
+					auto arg = value();
+					if (arg) {
+						if (currentParams->LoadArgument(index, *arg) == true)
+							return true;
+					}
+				}
 			}
 
 			return false;
 		}
 
-		 
-		static Variable PopArgument()
-		{
-			auto result = currentParams->GetArgument();;
-			currentParams->ClearArgument();
 
-			return result;
-		}
 
-		double LoadAsArgument()
-		{
-			if (this)
-			{
-				auto arg = value();
-				if (arg) {
-					if (currentParams->SetArgument(*arg) == true)
-					return 1.0;
-				}
-			}
-
-			return -1.0;
-		}
-
-	
-		
 
 		const Variable* value()
 		{
@@ -250,69 +245,191 @@ namespace LEX
 
 	};
 
+
+	/////////////////////////////////////
+
+
+
+
+	template <size_t Size, size_t... Indices>
+	struct FunctorHelper : public FunctorHelper<Size - 1, Indices..., sizeof...(Indices)>
+	{
+
+	};
+
+	template <size_t... Indices>
+	struct FunctorHelper<0, Indices...>
+	{
+		static constexpr size_t SIZE = sizeof...(Indices);
+
+		//this should probably use an out
+		static auto Execute(DynamicFormula& base, std::span<Variable> args, RE::TESObjectREFR* refr, RE::TESObjectREFR* subject, RE::TESObjectREFR* target, float solution)
+		{
+			double def = NAN;
+
+			auto& formula = base.As<FunctorFormula<SIZE>>();
+
+
+			return formula(refr)->Call(subject, target, solution, args[Indices]..., def);
+		}
+
+		static auto Create(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+		{
+			return FunctorFormula<SIZE>::Create(
+				"target",
+				"subject",
+				"solution",
+				params[Indices]...,
+				name,
+				to_process,
+				script);
+
+		}
+	};
+
+
 	struct Functor
 	{
-		struct NewParams
+		enum Flags
 		{
-			static constexpr size_t maxCount = 3;
-
-			TypeInfo* type[maxCount];
-			bool optional = false;
+			kNone = 0,
+			kInvalid = 1 << 0,
+			kErrorDisplayed = 1 << 1,
+			kIsSolvable = 1 << 2,
+			kUsesDefault = 1 << 3,
 		};
 
-		ConditionFormula formula{};
 
 
+		//std::vector<Param> parameters;
 
+		std::unique_ptr<Parameter[]> parameters = nullptr;
+		uint32_t size = 0;
 
-		//I may make this a multi parameter set up by making it a null terminated unique_ptr string of type infos.
-		TypeInfo* parameter = nullptr;
+		//If the number of args are less than the size of parameters, but more than the minimum, it won't pad the arg 
+		// collection. If the number of args is below the minimum it will fail to execute.
+		uint32_t min = -1;
 
-		std::optional<float> defaultValue = std::nullopt;
-		uint32_t ownerID = -1;
-		bool errorDisplayed = false;//Done so we can skip over stuff like the thing not loading.
-		bool isSolvable = true;
-		bool optionalParam = false;
-		
-		double GetDefault()
+		//Want to make a convert function for formula handlers.
+		DynamicFormula formula{};
+
+		//Instead of default I'll make a struct that will allow me to just force the value to be one or the other.
+		float defaultValue = NAN;
+		Flags flags = kNone;
+
+		void SetFlags(Flags flag, bool value)
 		{
-			return defaultValue.value_or(0);
+			if (value)
+				flags |= flag;
+			else
+				flags &= flag;
+		}
+
+		void SetDefault(float def)
+		{
+			defaultValue = def;
+			SetFlags(kUsesDefault, true);
+		}
+
+		void MarkInvalid()
+		{
+			SetFlags(kInvalid, true);
 		}
 
 
+		bool IsSolvable() const
+		{
+			return flags & kIsSolvable;
+		}
+
+		void SetParameters(std::span<Parameter> params)
+		{
+			auto length = params.size();
+
+			if (length) {
+				parameters = std::make_unique<Parameter[]>(length);
+				size = length;
+				std::move(params.begin(), params.end(), parameters.get());
+			}
+		}
+
+		bool CreateFormula(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+		{
+			auto length = params.size();
+
+			if (size != length) {
+				//log a failure
+				return false;
+			}
+
+			BinarySearch<Parameter::MAX_SIZE>(length, [&]<size_t I>
+			{
+				formula = FunctorHelper<I>::Create(name, script, to_process, params);
+			});
+
+			return formula;
+		}
 
 		double Execute(RE::TESObjectREFR* refr, RE::TESObjectREFR* subject, RE::TESObjectREFR* target, float solution)
 		{
 			//I'd like to pop regardless
-			Variable arg = Property::PopArgument();
+			//Variable arg = Property::PopArgument();
+
+			//This should be gotten from a function that gets a range of what youre allowed to use
 
 			if (this) {
-				auto def = GetDefault();
+				std::vector<Variable> args;
 
-				bool is_void = arg.IsVoid();
 
-				if (is_void && parameter) {
-					if (!optionalParam)
+				if (currentParams->PopArguments(min, size, args) == false) {
+					return -1;
+				}
+
+				auto def = -1.0;
+
+				auto length = args.size();
+
+				for (int64_t i = 0; i < length; i++)
+				{
+					auto& arg = args[i];
+					auto& param = parameters[i];
+					auto type = param.type;
+
+					bool is_void = arg.IsVoid();
+
+					if (is_void && type) {
+						if (param.IsOptional() == false)
+							return def;
+
+						arg = type->GetDefault();
+					}
+					else if (!arg.IsVoid() && !type) {
 						return def;
+					}
 
-					arg = parameter->GetDefault();
-				}
-				else if (!arg.IsVoid() && !parameter) {
-					return def;
+					auto arg_type = arg.GetTypeInfo();
+
+					if (type && arg_type != type && type->Convert(arg, arg) == false) {
+						return def;
+					}
+
 				}
 
-				auto arg_type = arg.GetTypeInfo();
-				//This needs to use convert eventually.
-				if (!parameter || arg_type == parameter || parameter->Convert(arg, arg) == true) {
-					return formula(refr)->Call(arg, subject, target, solution, def);
-				}
-				
-
+				return BinarySearch<Parameter::MAX_SIZE>(length, [&]<size_t I>
+				{
+					return FunctorHelper<I>::Execute(formula, args, refr, subject, target, solution);
+				});
 			}
 			return std::numeric_limits<double>::quiet_NaN();
 		}
-
 	};
+
+
+
+
+	///////////////////////////////////////////////
+
+
 
 
 
@@ -403,7 +520,7 @@ namespace LEX
 			ConditionFormula* result;
 
 			if (formulas.end() == it) {
-				ConditionFormula& formula = formulas[form] = ConditionFormula::Create({ "voidable", "arg" }, "subject", "target", "solution", form, cached_script::condition());
+				ConditionFormula& formula = formulas[form] = ConditionFormula::Create("subject", "target", "solution", form, cached_script::condition());
 
 				if (formula) {
 					report::compile::info("Successfully compiled '{}'", form);
@@ -626,82 +743,83 @@ namespace LEX
 
 						Functor functor{};
 
-						functor.ownerID = fileID;
+
+
+						std::vector<Parameter> params;
+						
+						std::vector<std::pair<std::string_view, std::string_view>> names;
+						
+						bool stop = false;
+
+						VisitJsonIfFind(item, "parameters", [&](json& it)
+							{
+								if (stop) return;
+
+								Parameter param;
+								std::pair<std::string_view, std::string_view> name;
+
+								name.first = it["type"];
+								name.second = it["name"];
+
+
+								IfFind(item, "optional", [&](json& it)
+								{
+									if (it == true)
+										param.settings = Parameter::kOptional;
+								});
+
+								ITypeInfo* type = script->GetTypeFromPath(name.first);
+
+								if (!type) {
+									logger::error("Type for parameter cannot be found: {}", name.first);
+									stop = true;
+									return;
+								}
+
+								param.type = type->GetTypeInfo(nullptr);
+
+								if (!param.type) {
+									logger::error("Type for parameter is not complete: {}", name.first);
+									stop = true;
+									return;
+								}
+								params.push_back(std::move(param));
+								names.push_back(std::move(name));
+
+
+							});
+						
+
+
+						///////////////
+
+						//functor.ownerID = fileID;
 
 						SyntaxRecord to_process;
 
 						std::string_view formula = item["formula"];
 						
-						std::string_view parameter;
-						//TODO: confirm this type exists.
 
-						bool has_param;
-
-						if (IfFind(item, "parameter", [&](json& type)
-							{
-								has_param = true;
-								parameter = type;
-							}) == false)
-						{
-							has_param = false;
-							parameter = "voidable";
-						}
-
-						functor.isSolvable = FindOr(item, "isSolvable", true);
+						functor.SetFlags(Functor::kIsSolvable, FindOr(item, "isSolvable", true));
 
 						if (!script) {
 							script = cached_script::condition();
 						}
 
-						if (has_param)
-						{
-							ITypeInfo* type = script->GetTypeFromPath(parameter);
-
-							if (!type) {
-								logger::error("Type for parameter cannot be found: {}", parameter);
-							}
-
-
-							functor.parameter = type->GetTypeInfo(nullptr);
-
-							if (!functor.parameter) {
-								logger::error("Type for parameter is not complete: {}", parameter);
-							}
-						}
-						
 						IfFind(item, "default", [&](json& number)
-							{
-								functor.defaultValue = static_cast<float>(number);
-							});
-
-						IfFind(item, "optional", [&](json& value)
-							{
-								functor.optionalParam = value;
-							});
-
-
+						{
+							functor.SetDefault(static_cast<float>(number));
+						});
 
 						if (Parser::CreateSyntax<LineParser>(to_process, formula) == false) {
 							logger::error("Functor formula failed to be parsed: {}", formula);
 						}
+						
+						functor.SetParameters(params);
 
-						//Handle process here
-
-						auto func_form = ConditionFormula::Create(
-							{ parameter, "arg"}, 
-							"target", 
-							"subject",
-							"solution",
-							name, 
-							to_process, 
-							script);
-
-						if (!func_form) {
+						if (functor.CreateFormula(name, script, to_process, names) == false) {
 							logger::error("Functor formula failed to compile: {}", formula);
 						}
-						//Check validation here.
-
-						functor.formula = func_form;
 						
 						functors[name] = std::move(functor);
 					}
@@ -799,10 +917,25 @@ namespace LEX
 
 		//LOADPROP, CALLFUNC, LOADFILE are the names I'll be using.
 
-		static constexpr size_t k_loadPropCode = 0xDEAD4EAD;
-		static constexpr size_t k_exFuncCode = 0x600DFEED;
-		static constexpr size_t k_argFuncCode = 0x1BADD00D;
-		static constexpr size_t k_loadFileCode = 0xBAD4EED;
+		static constexpr ParameterCode k_loadPropCode = 0xDEAD4EAD;
+		static constexpr ParameterCode k_exFuncCode = 0x600DFEED;
+		static constexpr ParameterCode k_argFuncCode = 0x1BADD00D;
+		static constexpr ParameterCode k_loadFileCode = 0xBAD4EED;
+		static constexpr ParameterCode k_useFormulaCode = 0xDEADBEEF;
+
+		static void HandleProperty(const std::string_view& name, void*& arg1, void*& arg2)
+		{
+
+
+			std::string prop_name;
+			prop_name = name.substr(k_loadProperty.size());
+
+			currentParams->AddFilename(prop_name);
+			Property* property = FindProperty(prop_name);
+
+			logger::info("Search for property {}: {}", prop_name, !!property);
+			
+		}
 
 		static void HandleFunctor(const std::string_view& name, void*& arg1, void*& arg2)
 		{
@@ -815,8 +948,10 @@ namespace LEX
 			Functor* functor = FindFunctor(func_name);
 			logger::info("Search for functor {}: {}", func_name, !!functor);
 			arg1 = functor;
-			arg2 = reinterpret_cast<void*>(k_exFuncCode);
+			arg2 = k_exFuncCode;
 		}
+
+
 
 		static void HandleFile(const std::string_view& name, void*& arg1, void*& arg2, bool lock)
 		{
@@ -831,10 +966,29 @@ namespace LEX
 				currentParams->SetFilename(*it, !lock);
 			}
 			arg1 = reinterpret_cast<void*>(found);
-			arg2 = reinterpret_cast<void*>(k_loadFileCode);
+			arg2 = k_loadFileCode;
 
 		}
 
+
+		//This is used
+		static void HandleDestination(void*& packed, RE::CONDITION_ITEM_DATA& data)
+		{
+			if (data.flags.global) {
+				return;
+			}
+
+			ParameterCode code = packed;
+
+			int index = data.comparisonValue.f;
+
+			packed = code.InsertData(data.comparisonValue.f);
+
+			data.flags.global = false;
+			data.flags.opCode = RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
+			data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+	
+		}
 
 		static void AutoPassCheck(RE::CONDITION_ITEM_DATA& data)
 		{
@@ -872,7 +1026,9 @@ namespace LEX
 
 				logger::info("Search for property {}: {}", prop_name, !!property);
 				arg1 = property;
-				arg2 = reinterpret_cast<void*>(k_loadPropCode);
+				arg2 = k_loadPropCode;
+
+				HandleDestination(arg2, data);
 			}
 			else if (name.starts_with(k_executeFunctor) == true) {
 				HandleFunctor(name.substr(k_executeFunctor.size()), arg1, arg2);
@@ -885,16 +1041,12 @@ namespace LEX
 			}
 			else if (name.starts_with(k_returnFunctor) == true) {
 				HandleFunctor(name.substr(k_returnFunctor.size()), arg1, arg2);
-				data.flags.global = false;
-				data.flags.opCode = arg1 ? RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo : RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
-				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+				HandleDestination(arg2, data);
 			}
 			else if (name.starts_with(k_argueFunctor) == true) {
 				HandleFunctor(name.substr(k_argueFunctor.size()), arg1, arg2);
-				arg2 = reinterpret_cast<void*>(k_argFuncCode);
-				data.flags.global = false;
-				data.flags.opCode = arg1 ? RE::CONDITION_ITEM_DATA::OpCode::kNotEqualTo : RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
-				data.comparisonValue.f = -std::numeric_limits<float>::infinity();
+				arg2 = k_argFuncCode;
+				HandleDestination(arg2, data);
 			}
 			else if (name.starts_with(k_loadFile) == true) {
 				HandleFile(name.substr(k_loadFile.size()), arg1, arg2, false);

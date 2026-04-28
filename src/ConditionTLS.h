@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Lexicon/Variable.h"
-
+#include "Parameter.h"
 namespace LEX
 {
 	enum struct ForceResult
@@ -15,15 +15,72 @@ namespace LEX
 	// previous when it dies.
 	struct ConditionTLS
 	{
+		//inline static thread_local ConditionTLS* current = nullptr;
+		//ConditionTLS* previousTLS = nullptr;
+
+
 		RE::ConditionCheckParams* params = nullptr;
 		std::string_view filename;
-		bool allowFilenameClear = true;
-		Variable argument{};
 		float prevSolution = 0;
-		bool preserveSolution = true;
-		bool solveToArg = false;
 		ForceResult force = ForceResult::NA;
+		std::vector<Variable> arguments;
 
+		bool allowFilenameClear = true;
+		bool preserveSolution = true;
+
+
+		bool LoadArgument(uint32_t index, Variable value)
+		{
+			if (this)
+			{
+				assert_if (index > Parameter::MAX_SIZE) {
+					//Outside of the range, this shouldn't happen
+					return false;
+				}
+
+				if (arguments.size() <= index)
+					arguments.resize(index + 1);
+
+				arguments[index] = std::move(value);
+			}
+
+			return this;
+		}
+
+		inline bool PopArguments(uint32_t min, uint32_t size, std::vector<Variable>& args)
+		{
+			//If the number of args are less than the size of parameters, but more than the minimum, it won't pad the arg 
+			// collection. If the number of args is below the minimum it will fail to execute.
+
+			if (min == -1) {
+				min = size;
+			}
+
+			if (arguments.size() > min)
+				return false;
+
+			std::vector<Variable> result;
+
+			auto range = std::min<size_t>(arguments.size(), min);
+
+			arguments.resize(range);
+
+			args = std::move(arguments);
+
+			return true;
+		}
+
+		void SetPreserves(bool value)
+		{
+			if (this)
+				preserveSolution = value;
+		}
+
+		void SetForceResult(bool value)
+		{
+			if (this)
+			force = value ? ForceResult::True : ForceResult::False;
+		}
 
 		void CheckResult(bool& result)
 		{
@@ -50,9 +107,15 @@ namespace LEX
 			return this ? std::exchange(preserveSolution, true) : false;
 		}
 
-		bool ShouldSolveArgument()
+		void TrySolution(float value)
 		{
-			return this ? std::exchange(solveToArg, false) : false;
+			if (this)
+			{
+				if (std::exchange(preserveSolution, true) == true)
+				{
+					prevSolution = value;
+				}
+			}
 		}
 
 		float GetSolution()
@@ -69,18 +132,8 @@ namespace LEX
 		void ClearArgument()
 		{
 			if (this) {
-				argument = Variable{};
+				arguments.clear();
 			}
-		}
-
-		bool SetArgument(Variable arg)
-		{
-			if (this) {
-				argument = std::move(arg);
-				return true;
-			}
-
-			return false;
 		}
 
 
@@ -108,11 +161,6 @@ namespace LEX
 		}
 
 
-
-		Variable GetArgument()
-		{
-			return this ? argument : Variable{};
-		}
 	};
 
 	inline static thread_local ConditionTLS* currentParams = nullptr;

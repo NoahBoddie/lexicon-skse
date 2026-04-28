@@ -43,44 +43,69 @@ namespace LEX
 
 			float solution = currentParams->GetSolution();
 			
-			switch (reinterpret_cast<size_t>(param2))
+			ParameterCode code = param2;
+
+			switch (code.code)
 			{
 			case 0xDEADBEEF:
 				if  constexpr (1)
 				{
 					if (!param1) {
 						result = NAN;
+						currentParams->SetForceResult(false);
 						break;
 					}
 					auto& formula = *reinterpret_cast<ConditionFormula*>(param1);
-
-					result = formula ? formula(a_this)->Call(Property::PopArgument(), subject, target, solution, 0) : 0;
+					//Might be able to vary the args off of something like a parameter
+					result = formula ? formula(a_this)->Call(subject, target, solution, 0) : 0;
+					currentParams->SetPreserves(true);
+					if (!formula)
+						currentParams->SetForceResult(false);
 				}
 				break;
 
-			case FunctorManager::k_argFuncCode:
-				currentParams->solveToArg = true;
-				[[fallthrough]];
-
-			case FunctorManager::k_exFuncCode:
+			case FunctorManager::k_argFuncCode.code:
 				if  constexpr (1)
 				{
 					Functor* functor = reinterpret_cast<Functor*>(param1);
 					result = functor->Execute(a_this, subject, target, solution);
-					should_set = functor ? functor->isSolvable : true;
+					
+					bool success = functor && functor->IsSolvable();
+
+					if (success = code.data > 0)
+						currentParams->LoadArgument(code.data--, result);
+
+					currentParams->SetForceResult(success);
+					should_set = false;
 				}
 				break;
 
-			case FunctorManager::k_loadPropCode:
+			case FunctorManager::k_exFuncCode.code:
+				if  constexpr (1)
+				{
+					Functor* functor = reinterpret_cast<Functor*>(param1);
+					result = functor->Execute(a_this, subject, target, solution);
+					should_set = functor && functor->IsSolvable();
+					if (!functor)
+						currentParams->SetForceResult(false);
+					else if (functor->IsSolvable() == false)
+						currentParams->SetForceResult(true);
+				}
+				break;
+
+			case FunctorManager::k_loadPropCode.code:
 				if  constexpr (1)
 				{
 					Property* property = reinterpret_cast<Property*>(param1);
-					result = property->LoadAsArgument();
+					currentParams->SetForceResult(property->Load(code.data));
+					result = 1;
 				}
 				return true;
 
-			case FunctorManager::k_loadFileCode:
-				result = !!param1 ? 1.0 : -1.0;
+			case FunctorManager::k_loadFileCode.code:
+				currentParams->SetForceResult(!!param1);
+				should_set = false;
+				result = 0;
 				return true;
 
 			default:
@@ -88,8 +113,7 @@ namespace LEX
 				break;
 			}
 
-			if (currentParams)
-				currentParams->preserveSolution = should_set;
+			currentParams->SetPreserves(should_set);
 
 			return ret;
 
