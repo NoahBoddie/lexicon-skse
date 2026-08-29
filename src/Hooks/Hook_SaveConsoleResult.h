@@ -11,7 +11,7 @@ namespace LEX
 
 		static void Install()
 		{
-			//SE: 328110, AE: 33F730, VR: ???
+			//SE: 328110, AE: 33F730, VR: 337A00
 			auto hook = REL::Relocation<uintptr_t>{ REL::RelocationID(22879, 23329), RELOCATION_OFFSET(0x75F, 0x771) }.address();
 			uintptr_t offset = 0x5;
 
@@ -90,7 +90,7 @@ namespace LEX
 			if (result) {
 				consoleReturn = after;
 			}
-			report::message::trace("before?: {}, after: {}", noReturn, after);
+
 			return result;
 		}
 

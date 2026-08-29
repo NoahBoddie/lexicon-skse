@@ -18,6 +18,7 @@ include (cmake/build_util.cmake)
 
 
 set(headers
+        include/Enums.h
         include/GameObjectStuff.h
         
 )
@@ -39,9 +40,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         src/ConditionFunction.h
         "src/FunctorManager.h"
         "src/ConditionTLS.h"
+        "src/TestField.h"
         "src/Hooks.hpp"
         src/ScriptFunctions.hpp
-     "src/ScriptFunctions/Register_ObjectReference.h" "src/ScriptFunctions/Register_Door.h" "src/ScriptFunctions/Utility.h" "src/ScriptFunctions/Register_Condition.h" "src/CachedScript.h" "src/Hooks/Hook_GetNoRumors.h" "src/Hooks/Hook_RunConsole.h" "src/Hooks/Hook_ResolveCondition.h" "src/Hooks/Hook_LoadCondition.h" "src/Hooks/Hook_SaveConditionParams.h" "src/Hooks/Hook_SaveConditionResult.h" "src/Hooks/Hook_SaveConsoleResult.h" "src/Hooks/Hook_FilesLoaded.h" "src/ScriptFunctions/Register_Location.h" "src/ScriptFunctions/Register_Form.h" "src/ParameterCode.h" "src/Parameter.h")
+     "src/ScriptFunctions/Register_ObjectReference.h" "src/ScriptFunctions/Register_Door.h" "src/ScriptFunctions/Utility.h" "src/ScriptFunctions/Register_Condition.h" "src/CachedScript.h" "src/Hooks/Hook_GetNoRumors.h" "src/Hooks/Hook_RunConsole.h" "src/Hooks/Hook_ResolveCondition.h" "src/Hooks/Hook_LoadCondition.h" "src/Hooks/Hook_SaveConditionParams.h" "src/Hooks/Hook_SaveConditionResult.h" "src/Hooks/Hook_SaveConsoleResult.h" "src/Hooks/Hook_FilesLoaded.h" "src/ScriptFunctions/Register_Location.h" "src/ScriptFunctions/Register_Form.h" "src/ParameterCode.h" "src/Parameter.h" "src/ConditionAttribute.h")
 
     set(sources
             ${sources}

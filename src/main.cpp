@@ -24,21 +24,11 @@ INITIALIZE_NOW()
 #include "ScriptFunctions.hpp"
 //#include "ConditionFunction.h"
 #include "Hooks.hpp"
-int nested_func(int c)
-{
-    std::cout << std::stacktrace::current() << '\n';
-    return c + 1;
-}
 
-int func(int b)
-{
-    return nested_func(b + 1);
-}
+#include "ConditionAttribute.h"
 
-int main()
-{
-    std::cout << func(777);
-}
+#include "TestField.h"
+
 using namespace SKSE;
 using namespace SKSE::log;
 using namespace SKSE::stl;
@@ -133,15 +123,13 @@ void LogDis(std::string_view name, float value)
 
 
 
-
-
 void HandleMessage(MessagingInterface::Message* message)
 {
     switch (message->type) {
     case MessagingInterface::kPostLoad:
 
         //if (LEX::ProjectManager::instance->CreateProject("ActorValueGenerator", nullptr) != LEX::APIResult::Success) { logger::info("AVG has experienced failure"); }
-
+        ReadConditionFunctions();
         break;
         // It is now safe to do multithreaded operations, or operations against other plugins.
 
@@ -150,13 +138,17 @@ void HandleMessage(MessagingInterface::Message* message)
         Component::LinkComponents(LinkFlag::Loaded);
 
         Component::LinkComponents(LinkFlag::Declaration);
+        
+        Initializer::Execute("function_register");
+
+        Component::LinkComponents(LinkFlag::Attribute);
+
 
         Component::LinkComponents(LinkFlag::Definition);
 
         //Component::LinkComponents(LinkFlag::External);
 
 
-        Initializer::Execute("function_register");
         break;
 
     case MessagingInterface::kInputLoaded:
@@ -217,21 +209,6 @@ void LexTesting()
 
 
 
-INITIALIZE()
-{
-    //This gives 1 too many.
-    RegisterObjectType<RE::TESForm*>("FORM", (TypeOffset)RE::FormType::Max + ExtraForm::kTotal);    
-    /*
-    RE::TESForm* test = nullptr;
-
-    //This may cause issues because it removes pointer?
-    MakeObject(test);
-    ObjectData to{};
-    reinterpret_cast<RE::TESForm*&>(to) = test;
-    FillObjectData<RE::TESForm*>(to, &test);
-    ObjectTranslator<RE::TESForm*>{}(test);
-    //*/
-}
 
 
 
@@ -463,7 +440,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     Init(skse, false);
 
     //TODO: Move this, the version check is more relevant to lexicon in general than this one specfically
-    LEX::InterfaceManager::AddVersionCheck([](uintptr_t server, uintptr_t client) -> LEX::Update
+    LEX::InterfaceManager::AddVersionCheck([](ProjectVersion server, ProjectVersion client) -> LEX::Update
         {
 //Move and preserve
 #define SEM_VER(mc_major, mc_minor, mc_change, mc_fixes) \
@@ -474,10 +451,10 @@ SKSEPluginLoad(const LoadInterface* skse) {
 
             constexpr auto not_allowed = SEM_VER(1, 0, 0, 0);
 
-            if (client <= not_allowed) {
+            if (client.library <= not_allowed) {
                 return LEX::Update::Library;
             }
-
+            
             return LEX::Update::Match;
         });
 

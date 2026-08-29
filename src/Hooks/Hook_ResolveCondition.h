@@ -8,10 +8,11 @@ namespace LEX
 {
 	struct ResolveConditionHook
 	{
+		//TODO: Remake as a prologue hook
 
 		static void Install()
 		{
-			//SE: 444370, AE(6.640): 45F960, VR : ???
+			//SE: 444370, AE(6.640): 45F960, VR : 444F40
 			auto hook = REL::RelocationID(29065, 29877).address();
 			uintptr_t offset = 0x5;
 

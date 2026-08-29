@@ -391,9 +391,9 @@ namespace LEX
 
 
 
-		case RE::Setting::Type::kSignedInteger:
+		case RE::Setting::Type::kInteger:
 			if (switch_value == type) {
-				*static_cast<int32_t*>(out) = setting->GetSInt();
+				*static_cast<int32_t*>(out) = setting->GetInteger();
 			}
 
 			break;
@@ -580,7 +580,7 @@ namespace LEX
 	
 	void PrintNotification(StaticTargetTag, std::string_view&& msg)
 	{
-		RE::DebugNotification(msg.data());
+		RE::SendHUDMessage::ShowHUDMessage(msg.data());
 	}
 
 
@@ -693,7 +693,7 @@ namespace LEX
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<float, RE::Setting::Type::kFloat>, "Shared::GameObjects::GetGameSettingFloat");		//18
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<bool, RE::Setting::Type::kBool>, "Shared::GameObjects::GetGameSettingBool");			//19
 		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<std::string, RE::Setting::Type::kString>, "Shared::GameObjects::GetGameSettingString");	//20
-		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<int, RE::Setting::Type::kSignedInteger>, "Shared::GameObjects::GetGameSettingInt");	//21
+		dump = ProcedureHandler::instance->RegisterFunction(GetGameSetting<int, RE::Setting::Type::kInteger>, "Shared::GameObjects::GetGameSettingInt");	//21
 		
 
 

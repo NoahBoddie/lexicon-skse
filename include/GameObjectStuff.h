@@ -25,7 +25,10 @@ namespace LEX
 		BoundObject,
 		BoundAnimObject,
 
-		kTotal
+		kTotal,
+
+
+		kMaxFormTypes = ExtraForm::kTotal + (TypeOffset)RE::FormType::Max,
 	};
 
 
@@ -45,40 +48,17 @@ namespace LEX
 		}
 	};
 
-
-
 	template <>
-	struct LEX::ObjectInfo<RE::TESForm*> : public INTERNAL_OBJECT_INFO(RE::TESForm*)
+	struct ObjectSettings<RE::TESForm*>
 	{
-#ifdef LEX_SOURCE
-
-		bool IsPooled(ObjectData&) override;
-
-
-		virtual void Initialize(ObjectData& data) override;
-
-
-		TypeOffset GetTypeOffset(ObjectData& data) override;
-
-		//the form object info needs to edit the transfer functions,
-
-
-		void TryDetach(RE::TESForm*& target);
-
-		void TryAttach(RE::TESForm* target);
-
-		void Copy(ObjectData& self, const ObjectData& other) override;
-
-
-		void Destroy(ObjectData& self) override;
-
-		String PrintString(ObjectData& a_self, std::string_view context) override;
-
-		bool CreateLiteralData(std::string_view literal, uintptr_t & hash, ObjLitCtor & ctor) override;
-
-		TypeOffset GetOffsetFromArgs(const std::string_view& category, const std::span<std::string_view>& args) override;
-#endif
+		OBJECT_INFO_DATA(1)
+		{
+			"FORM", 
+			ExtraForm::kMaxFormTypes
+		};
 	};
+
+
 
 
 
@@ -147,7 +127,22 @@ namespace LEX
 	};
 
 
+	template <>
+	struct VariableType<RE::BSFixedString>
+	{
 
+		TypeInfo* operator()()
+		{
+			return String::GetVariableType(nullptr);
+		}
+	};
+	using CRIME_TYPE = RE::PackageNS::CRIME_TYPE;
+
+	//TODO: Implement the shared enums.
+	
+	SCRIPT_ENUM_NAME(RE::FormType, "Shared::Enums::FormType");
+	SCRIPT_ENUM_NAME(RE::ActorValue, "Shared::Enums::ActorValue");
+	SCRIPT_ENUM_NAME(RE::PackageNS::CRIME_TYPE, "Shared::Enums::CrimeType");
 	void Test()
 	{
 		VariableType<RE::TESForm*>{};

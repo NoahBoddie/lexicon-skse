@@ -10,8 +10,8 @@ namespace LEX
 	{
 		static void Install()
 		{
-			//SE: 16DBB0, AE(6.640): 179E50, VR : ???
-			REL::Relocation<uintptr_t> hook{ REL::RelocationID { 13639, 13744 } , RELOCATION_OFFSET(0x2FA, 0x30E)};
+			//SE: 16DBB0, AE(6.640): 179E50, VR : 17E540
+			REL::Relocation<uintptr_t> hook{ REL::RelocationID { 13639, 13744 } , RELOCATION_OFFSET(0x2FA, 0x30E, 0x2EA)};
 
 			auto& trampoline = SKSE::GetTrampoline();
 

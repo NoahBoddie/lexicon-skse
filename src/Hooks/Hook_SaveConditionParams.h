@@ -11,10 +11,6 @@ namespace LEX
 
 		static void Install()
 		{
-			//This may require more.
-
-
-			//~Old version SE: 4454C0, AE: 460B30, VR: ???
 			//SE: 444920, AE: 45FFC0, VR: ???
 			auto hook = REL::RelocationID(29078, 29895).address();
 			uintptr_t offset = 0x5;

@@ -10,6 +10,10 @@
 #include "Parameter.h"
 #include "ParameterCode.h"
 
+
+
+
+
 namespace RE
 {
 	using FunctionID = FUNCTION_DATA::FunctionID;
@@ -122,6 +126,11 @@ namespace LEX
 		uint32_t ownerID = -1;
 		bool errorDisplayed = false;
 		Property() = default;
+
+
+
+
+
 		Property(std::string type_name, std::string formula) : type{ type_name }
 		{
 			auto result = PropertyFormula::Create(type_name, formula);
@@ -273,7 +282,7 @@ namespace LEX
 			return formula(refr)->Call(subject, target, solution, args[Indices]..., def);
 		}
 
-		static auto Create(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+		static auto Create(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<FormulaParam, std::string_view>> params)
 		{
 			return FunctorFormula<SIZE>::Create(
 				"target",
@@ -353,7 +362,7 @@ namespace LEX
 			}
 		}
 
-		bool CreateFormula(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<std::string_view, std::string_view>> params)
+		bool CreateFormula(std::string_view name, IScript* script, SyntaxRecord& to_process, std::span<std::pair<FormulaParam, std::string_view>> params)
 		{
 			auto length = params.size();
 
@@ -747,7 +756,7 @@ namespace LEX
 
 						std::vector<Parameter> params;
 						
-						std::vector<std::pair<std::string_view, std::string_view>> names;
+						std::vector<std::pair<FormulaParam, std::string_view>> names;
 						
 						bool stop = false;
 
@@ -756,9 +765,9 @@ namespace LEX
 								if (stop) return;
 
 								Parameter param;
-								std::pair<std::string_view, std::string_view> name;
+								std::pair<FormulaParam, std::string_view> name;
 
-								name.first = it["type"];
+								std::string_view type_name = it["type"];
 								name.second = it["name"];
 
 
@@ -768,18 +777,18 @@ namespace LEX
 										param.settings = Parameter::kOptional;
 								});
 
-								ITypeInfo* type = script->GetTypeFromPath(name.first);
+								ITypeInfo* type = script->GetTypeFromPath(type_name);
 
 								if (!type) {
-									logger::error("Type for parameter cannot be found: {}", name.first);
+									logger::error("Type for parameter cannot be found: {}", type_name);
 									stop = true;
 									return;
 								}
 
-								param.type = type->GetTypeInfo(nullptr);
+								name.first = param.type = type->GetTypeInfo(nullptr);
 
 								if (!param.type) {
-									logger::error("Type for parameter is not complete: {}", name.first);
+									logger::error("Type for parameter is not complete: {}", type_name);
 									stop = true;
 									return;
 								}
@@ -1101,6 +1110,7 @@ namespace LEX
 		inline static bool _init = false;
 
 	};
+
 
 	INITIALIZE("main_init")
 	{
