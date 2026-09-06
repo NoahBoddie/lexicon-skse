@@ -26,18 +26,17 @@ namespace LEX
 
 		//A seperate hook will have to be established to turn off the condition function check.
 
-		static bool thunk(RE::Script* a_this, RE::ScriptCompiler* a2, RE::COMPILER_NAME a3, RE::TESObjectREFR* a4)
+		static void thunk(RE::Script* a1, RE::ScriptCompiler* a2, RE::COMPILER_NAME a3, RE::TESObjectREFR* a4, void* a5)
 		{
 
-
-			std::string_view text = a_this->text;
+			std::string_view text = a1->text;
 
 
 
 			//So here's what I want in the strings for these.
 			//Success message, failure message, completion message. I'll use strings cause these are some what personalized.
 
-			if (auto str = a_this->text; !strnicmp(str, init_chars.data(), init_size) && text.size() > init_size && std::isalnum(str[init_size]) == false)
+			if (auto str = a1->text; !strnicmp(str, init_chars.data(), init_size) && text.size() > init_size && std::isalnum(str[init_size]) == false)
 			{
 				//for now, I'm skipping everything until I get to a : character.
 
@@ -75,15 +74,13 @@ namespace LEX
 
 						if (previousResult.IsVoid() == false)
 							log->Print("result >> %s", previousResult.PrintString().c_str());
-
-						return true;
 					}
 					catch (const LEX::Error& error)
 					{
 						log->Print("Script compiling error, adjust syntax (temp message)");
-						return true;
 					}
 
+					return;
 				}
 				else
 				{
@@ -94,7 +91,7 @@ namespace LEX
 			}
 
 
-			return func(a_this, a2, a3, a4);
+			return func(a1, a2, a3, a4, a5);
 		}
 
 		static inline REL::Relocation<decltype(thunk)> func;

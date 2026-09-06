@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         LexiconSKSE
-        VERSION 0.3.3.2
+        VERSION 0.6.3.0
         DESCRIPTION "An SKSE implemenation of Lexicon used as a scripting engine and conditions system."
         LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
@@ -130,24 +130,22 @@ target_link_libraries(
 endif()
 
 
-message(FINISH XXXX)
+target_compile_options(
+	${PROJECT_NAME}
+	PRIVATE			
+		/W4	# Warning level
+		#/WX	# Warning level (warnings are errors)
+		"$<$<CONFIG:DEBUG>:>"
+		"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
+)
 
-
-	target_compile_options(
-		${PROJECT_NAME}
-		PRIVATE			
-			/W4	# Warning level
-			#/WX	# Warning level (warnings are errors)
-			"$<$<CONFIG:DEBUG>:>"
-			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
-	)
-
-	target_link_options(
-		${PROJECT_NAME}
-		PRIVATE
-			"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-			"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
-	)
+target_link_options(
+	${PROJECT_NAME}
+	PRIVATE
+		"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
+#		"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
+        "$<$<CONFIG:RELEASE>:/DEBUG:FULL;/INCREMENTAL:NO;/OPT:REF;/OPT:ICF>"
+)
 
 
 
